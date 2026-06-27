@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PLS - Professional Lacrosse Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero intro-screen" id="intro-screen">
+        <canvas id="field-art" aria-hidden="true"></canvas>
+        <div class="hero-content">
+          <p class="eyebrow">Professional Lacrosse Simulator</p>
+          <h1>PLS</h1>
+          <p class="creator-credit">Made by Avik Hardy</p>
+          <p class="intro">
+            Pick a club, watch the lottery machine reveal the draft order, build a roster
+            under budget, simulate the season, then chase playoffs and Worlds.
+          </p>
+          <div class="instruction-grid">
+            <div><strong>1</strong><span>Choose one of 20 teams with shuffled last-season results.</span></div>
+            <div><strong>2</strong><span>Run a weighted lottery where worse teams have better odds.</span></div>
+            <div><strong>3</strong><span>Draft 5 players with expensive stars and cheap depth players.</span></div>
+            <div><strong>4</strong><span>Sim a 20-game season, handle trades, then play playoffs and Worlds.</span></div>
+          </div>
+          <button id="get-started" class="start-button">Get Started</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="team-select">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Choose Franchise</p>
+            <h2>Teams</h2>
+          </div>
+          <button id="new-game" class="icon-button" title="Reset game" aria-label="Reset game">↻</button>
+        </div>
+        <div id="owner-console-start" class="owner-console hidden"></div>
+        <div id="teams-grid" class="teams-grid">
+          <div class="load-note">Loading teams...</div>
+        </div>
+      </section>
+
+      <section class="layout hidden" id="game">
+        <aside class="sidebar">
+          <div class="selected-card">
+            <p class="eyebrow">Your Team</p>
+            <h2 id="club-name"></h2>
+            <div id="club-meta" class="meta-list"></div>
+          </div>
+          <nav class="tabs" aria-label="Game sections">
+            <button class="tab active" data-tab="draft">Draft</button>
+            <button class="tab" data-tab="cuts">Roster Cuts</button>
+            <button class="tab" data-tab="lineup">Lineup</button>
+            <button class="tab" data-tab="season">Season</button>
+            <button class="tab" data-tab="league">Standings</button>
+            <button class="tab" data-tab="leaders">League Leaders</button>
+            <button class="tab" data-tab="trades">Trades</button>
+            <button class="tab" data-tab="advice">Gmail</button>
+            <button class="tab" data-tab="news">News</button>
+            <button class="tab" data-tab="awards">Awards</button>
+            <button class="tab" data-tab="playoffs">Playoffs</button>
+            <button class="tab" data-tab="worlds">Worlds</button>
+            <button class="tab" data-tab="leaderboard">Leaderboard</button>
+            <button class="tab" data-tab="hof">Hall of Fame</button>
+            <button class="tab hidden" id="owner-tab" data-tab="owner">Owner</button>
+          </nav>
+          <button id="music-toggle" class="music-toggle" type="button">Turn Music On</button>
+          <button id="theme-toggle" class="theme-toggle" type="button">Light Mode</button>
+          <label class="music-picker">
+            <span>Choose Genre</span>
+            <select id="music-select">
+              <option value="calm">Calm Pad</option>
+              <option value="night">Neon Night</option>
+              <option value="focus">Draft Focus</option>
+              <option value="champion">Champion Glow</option>
+              <option value="rap">Rap Warmup</option>
+              <option value="phonk">Phonk Drive</option>
+              <option value="hardcore">Hardcore Arena</option>
+              <option value="trap">Trap Tunnel</option>
+              <option value="arcade">Arcade Choir</option>
+            </select>
+          </label>
+        </aside>
+
+        <section class="content">
+          <div class="status-strip" id="status-strip"></div>
+
+          <section class="tab-view active" id="draft-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Lottery and Draft</p>
+                <h2>Build the roster</h2>
+              </div>
+              <div class="button-group">
+                <button id="ask-draft-advice" class="secondary">Ask Advice</button>
+                <button id="run-lottery" class="primary">Run Lottery</button>
+              </div>
+            </div>
+            <div class="two-col">
+              <div class="panel inner">
+                <h3>Draft Order</h3>
+                <div id="lottery-machine" class="lottery-machine">
+                  <div class="machine-window">Ready</div>
+                  <div class="machine-balls"></div>
+                </div>
+                <ol id="lottery-list" class="ordered"></ol>
+              </div>
+              <div class="panel inner">
+                <h3>Your Draft Room</h3>
+                <div class="budget-row">
+                  <span>Draft budget</span>
+                  <strong id="draft-budget">$750k</strong>
+                </div>
+                <div id="draft-status" class="draft-status"></div>
+                <div id="draft-needs" class="chips"></div>
+                <div id="draft-board" class="draft-board"></div>
+              </div>
+            </div>
+            <div class="panel inner">
+              <h3>Pick Log</h3>
+              <div id="pick-log" class="log"></div>
+            </div>
+            <div class="panel inner">
+              <h3>Draft Recap</h3>
+              <div id="draft-recap" class="draft-recap"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="cuts-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Roster Limit</p>
+                <h2>Choose 17 to Keep</h2>
+              </div>
+              <button id="confirm-cuts" class="primary" disabled>Confirm Roster</button>
+            </div>
+            <div class="panel inner">
+              <h3>Keep List</h3>
+              <div id="cuts-status" class="draft-status"></div>
+              <div id="cuts-list" class="cut-list"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="lineup-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Starters and Bench</p>
+                <h2>Set Your Lineup</h2>
+              </div>
+              <button id="auto-lineup" class="secondary">Auto Best</button>
+            </div>
+            <div class="panel inner">
+              <div id="lineup-status" class="draft-status"></div>
+              <div id="lineup-board" class="lineup-board"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="season-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">20 Game Season</p>
+                <h2 id="week-title">Week 1</h2>
+              </div>
+              <div class="button-group">
+                <button id="simulate-week" class="primary" disabled>Sim Week</button>
+                <button id="simulate-season" class="secondary" disabled>Sim Season</button>
+              </div>
+            </div>
+            <div id="live-game" class="scoreboard"></div>
+            <div class="two-col">
+              <div class="panel inner">
+                <h3>Your Games</h3>
+                <div id="week-games" class="game-list"></div>
+              </div>
+              <div class="panel inner">
+                <h3>Your Roster</h3>
+                <div id="roster-list" class="roster"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="league-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">League Table</p>
+                <h2>Standings</h2>
+              </div>
+            </div>
+            <div class="panel inner wide standings-panel">
+              <h3>Standings</h3>
+              <div id="standings"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="leaders-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">League Leaders</p>
+                <h2>Stats and Team Value</h2>
+              </div>
+            </div>
+            <div class="league-bottom">
+              <div class="panel inner">
+                <h3>League Leaders</h3>
+                <div id="leaders"></div>
+              </div>
+              <div class="panel inner">
+                <h3>Team Value Leaders</h3>
+                <div id="values"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="trades-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Trade Market</p>
+                <h2>Budget: <span id="trade-budget">$400k</span></h2>
+              </div>
+              <div class="button-group">
+                <button id="ask-trade-advice" class="secondary">Ask Advice</button>
+                <button id="refresh-offers" class="secondary">New Offers</button>
+              </div>
+            </div>
+            <div class="two-col">
+              <div class="panel inner">
+                <h3>Incoming Requests</h3>
+                <div id="trade-offers" class="trade-list"></div>
+              </div>
+              <div class="panel inner">
+                <h3>Offer Other Teams</h3>
+                <div id="manual-trades" class="trade-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="advice-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Front Office Mail</p>
+                <h2>Gmail</h2>
+              </div>
+              <button id="refresh-advice" class="secondary">Ask for Help</button>
+            </div>
+            <div class="two-col">
+              <div class="panel inner">
+                <h3>Inbox</h3>
+                <div id="email-list" class="email-list"></div>
+              </div>
+              <div class="panel inner">
+                <h3 id="email-title">Open an email</h3>
+                <div id="email-body" class="email-body"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="news-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">League Feed</p>
+                <h2>News</h2>
+              </div>
+              <button id="open-interview" class="primary">Interview Player</button>
+            </div>
+            <div class="panel inner">
+              <h3>Stories, Interviews, and Drama</h3>
+              <div id="news-feed" class="news-feed"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="playoffs-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Playoffs</p>
+                <h2>Top 8 qualify</h2>
+              </div>
+              <button id="run-playoffs" class="primary" disabled>Run Playoffs</button>
+            </div>
+            <div class="panel inner">
+              <h3>Bracket</h3>
+              <div id="playoffs"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="awards-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Season Awards</p>
+                <h2>League Honors</h2>
+              </div>
+              <button id="continue-playoffs" class="primary" disabled>Continue to Playoffs</button>
+            </div>
+            <div class="panel inner">
+              <div id="awards"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="worlds-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">World Lacrosse</p>
+                <h2>Team USA vs the world</h2>
+              </div>
+              <div class="button-group">
+                <button id="run-worlds" class="primary" disabled>Run Worlds</button>
+                <button id="next-season" class="secondary hidden">Continue</button>
+              </div>
+            </div>
+            <div class="panel inner">
+              <h3>Worlds Games</h3>
+              <div id="worlds"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="leaderboard-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">All GM Accounts</p>
+                <h2>Global Leaderboard</h2>
+              </div>
+            </div>
+            <div id="owner-console" class="owner-console hidden"></div>
+            <div class="panel inner">
+              <h3>Championships vs Years Played</h3>
+              <div id="leaderboard"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="hof-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Retired Legends</p>
+                <h2>Hall of Fame</h2>
+              </div>
+            </div>
+            <div class="panel inner">
+              <h3>Top 25 Retired Players</h3>
+              <div id="hall-of-fame"></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="owner-view">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Owner Mode</p>
+                <h2>Avik Hardy Tools</h2>
+              </div>
+            </div>
+            <div id="owner-console-main" class="owner-console"></div>
+          </section>
+        </section>
+      </section>
+
+      <div class="modal account-modal" id="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
+        <div class="modal-box account-box">
+          <p class="eyebrow">PLS Account</p>
+          <h2 id="account-title">General Manager Login</h2>
+          <p class="account-copy">Made by Avik Hardy. Create a local account or log in to keep your team progress on this browser.</p>
+          <div class="account-switch">
+            <button id="show-signup" class="primary" type="button">Create Account</button>
+            <button id="show-login" class="secondary" type="button">Log In</button>
+          </div>
+          <div class="account-fields">
+            <label id="gm-name-field">
+              <span>General Manager Name</span>
+              <input id="gm-name" type="text" autocomplete="name" placeholder="Coach Powers" />
+            </label>
+            <label>
+              <span>Username</span>
+              <input id="account-username" type="text" autocomplete="username" placeholder="username" />
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="account-password" type="password" autocomplete="current-password" placeholder="password" />
+            </label>
+          </div>
+          <div id="account-message" class="account-message"></div>
+          <div class="modal-actions">
+            <button id="account-submit" class="primary" type="button">Create Account</button>
+          </div>
+          <div id="account-choice" class="account-choice hidden">
+            <strong id="account-choice-title">Welcome back</strong>
+            <span>Choose how you want to load this GM account.</span>
+            <div class="account-choice-actions">
+              <button id="continue-save" class="primary" type="button">Continue Season</button>
+              <button id="start-over-save" class="secondary" type="button">Start Over</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="modal-box">
+          <p class="eyebrow" id="confirm-kicker">Confirm</p>
+          <h2 id="confirm-title">Continue?</h2>
+          <p id="confirm-message"></p>
+          <div class="modal-actions">
+            <button id="confirm-cancel" class="secondary">Cancel</button>
+            <button id="confirm-continue" class="primary">Continue</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal hidden" id="scout-modal" role="dialog" aria-modal="true" aria-labelledby="scout-title">
+        <div class="modal-box scout-modal-box">
+          <p class="eyebrow">Scouting Card</p>
+          <h2 id="scout-title"></h2>
+          <div id="scout-body"></div>
+          <div class="modal-actions">
+            <button id="scout-close" class="secondary">Close</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal hidden" id="interview-modal" role="dialog" aria-modal="true" aria-labelledby="interview-title">
+        <div class="modal-box interview-modal-box">
+          <p class="eyebrow">Player Interview</p>
+          <h2 id="interview-title">Interview one of your players</h2>
+          <div id="interview-ai-status" class="interview-ai-status">Checking AI...</div>
+          <div id="interview-player-list" class="interview-player-list"></div>
+          <div id="interview-chat" class="interview-chat hidden">
+            <button id="interview-back" class="secondary" type="button">Back to Players</button>
+            <div id="interview-limit" class="interview-limit"></div>
+            <div id="interview-log" class="interview-log"></div>
+            <div class="interview-input-row">
+              <input id="interview-question" type="text" placeholder="Ask about the game, life, pressure, music, teammates..." />
+              <button id="send-interview" class="primary">Ask</button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="interview-close" class="secondary">Close</button>
+          </div>
+        </div>
+      </div>
+      <div class="toast hidden" id="trade-toast">
+        <strong id="toast-title">Trade request</strong>
+        <span id="toast-message"></span>
+        <div class="toast-actions">
+          <button id="toast-view" class="primary">View</button>
+          <button id="toast-decline" class="secondary">Decline</button>
+          <button id="toast-close" class="secondary">Dismiss</button>
+        </div>
+      </div>
+      <div class="toast email-toast hidden" id="email-toast">
+        <strong id="email-toast-title">New Gmail</strong>
+        <span id="email-toast-message"></span>
+        <div class="toast-actions">
+          <button id="email-toast-view" class="primary">Open</button>
+          <button id="email-toast-close" class="secondary">Dismiss</button>
+        </div>
+      </div>
+      <div class="toast news-toast hidden" id="news-toast">
+        <strong id="news-toast-title">Breaking News</strong>
+        <span id="news-toast-message"></span>
+        <div class="toast-actions">
+          <button id="news-toast-view" class="primary">Open</button>
+          <button id="news-toast-close" class="secondary">Dismiss</button>
+        </div>
+      </div>
+      <div class="celebration hidden" id="celebration">
+        <div class="confetti" id="confetti"></div>
+        <div class="celebration-box">
+          <p class="eyebrow" id="celebration-kicker">Champions</p>
+          <h2 id="celebration-title"></h2>
+          <p id="celebration-message"></p>
+          <button id="celebration-close" class="primary">Continue</button>
+        </div>
+      </div>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
