@@ -281,6 +281,8 @@ function makeInterviewProfile(name, position, rating) {
   const hometowns = ["Baltimore", "Denver", "Long Island", "Philadelphia", "Boston", "Dallas", "San Diego", "Minneapolis", "Charlotte", "Columbus"];
   const heroes = ["a two-way midfielder from my hometown", "my first travel coach", "my older cousin", "a goalie who never talked but stopped everything", "the captain from my first serious team"];
   const nicknames = ["Wheels", "Ice", "Rocket", "Buckets", "Clamp", "Flash", "Tank", "Captain", "Silky"];
+  const goofyHabits = ["taping my stick the exact same way", "talking to the goal posts before warmups", "wearing lucky socks", "ranking every hotel breakfast", "doing one tiny dance after a clean ground ball", "naming my sticks like they are race cars"];
+  const phrases = ["no question", "big-time", "low-key", "not gonna lie", "that's locker-room science", "write that down in crayon"];
   const vibes = rating >= 88
     ? ["confident", "competitive", "spotlight-ready", "locked in"]
     : rating >= 74
@@ -295,6 +297,8 @@ function makeInterviewProfile(name, position, rating) {
     hobby: hobbies[(hash + 4) % hobbies.length],
     hero: heroes[(hash + 6) % heroes.length],
     nickname: nicknames[(hash + 7) % nicknames.length],
+    goofyHabit: goofyHabits[(hash + 8) % goofyHabits.length],
+    catchphrase: phrases[(hash + 9) % phrases.length],
     personality: vibes[(hash + 5) % vibes.length],
     motto: rating >= 88 ? "Own the moment." : rating >= 74 ? "Win the next possession." : "Earn every shift."
   };
@@ -2836,8 +2840,6 @@ function renderInterviewLog() {
 }
 
 async function playerInterviewAnswer(player, question) {
-  const aiResult = await fetchAiInterviewAnswer(player, question);
-  if (aiResult.answer) return aiResult.answer;
   return localPlayerInterviewAnswer(player, question);
 }
 
@@ -2890,6 +2892,69 @@ async function fetchAiInterviewAnswer(player, question) {
   } catch (error) {
     return { answer: "", error: error && error.message ? error.message : "could not reach the enhanced interview server" };
   }
+}
+
+function questionMainIdea(question) {
+  const cleaned = question.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word && !["what", "why", "how", "who", "when", "where", "is", "are", "do", "does", "did", "you", "your", "the", "a", "an", "to", "of", "and", "or", "in", "on", "for", "about", "think"].includes(word));
+  return cleaned.slice(0, 5).join(" ") || "that";
+}
+
+function simulatedPlayerLLM(player, question, context) {
+  const { team, profile, trend, statLine, confidence, topTeammate, role, teamMood } = context;
+  const q = question.toLowerCase();
+  const idea = questionMainIdea(question);
+  const opener = pick([
+    `Honestly, ${idea} is a funny one.`,
+    `Not gonna lie, ${idea} made me blink twice.`,
+    `That is a wild question, but I respect it.`,
+    `Alright, reporter mode activated.`,
+    `${profile.catchphrase}, that is not the question I expected.`
+  ]);
+  const statFlex = player.position === "Goalie"
+    ? `I'm sitting on ${player.saves} saves and ${player.wins} wins, so my brain is mostly save angles and snacks.`
+    : `I'm at ${player.goals} goals and ${player.assists} assists, so I am judging everything like it is a fast break.`;
+  const moodLine = `With ${team.name} at ${team.wins}-${team.losses}, ${teamMood}.`;
+  const goofyLine = pick([
+    `My official locker-room answer is that it depends on the vibes, the scoreboard, and whether someone brought ${profile.favoriteFood}.`,
+    `If it helps us win a ground ball, I am probably for it. If it distracts us, I am throwing it into the imaginary penalty box.`,
+    `I would rate it a ${Math.max(1, Math.min(10, Math.round(player.rating / 10)))} out of 10, adjusted for lacrosse weather and emotional damage.`,
+    `My coach would want a serious answer, so: stay disciplined. My real answer: chaos, but organized chaos.`,
+    `I have seen weirder things in warmups. One time my tape job looked like a science project and I still played decent.`
+  ]);
+  if (q.includes("would you rather")) {
+    return `${opener} I would pick the option that helps ${team.name} win and lets me keep my ankles intact. ${statFlex}`;
+  }
+  if (q.startsWith("can you") || q.includes("could you")) {
+    return `${opener} Could I? Maybe. Should I? Depends if the trainer, coach, and my common sense all sign the permission slip. ${role}`;
+  }
+  if (q.includes("rank") || q.includes("rate") || q.includes("scale")) {
+    return `${opener} I would rate it ${Math.max(1, Math.min(10, Math.round((player.rating + player.traits.showboat) / 20)))} out of 10. That is a very official number from the ${profile.nickname} Institute of Lacrosse Feelings.`;
+  }
+  if (q.includes("pizza") || q.includes("burger") || q.includes("candy") || q.includes("drink") || q.includes("snack")) {
+    return `${opener} Food questions matter. My go-to is ${profile.favoriteFood}, but if ${idea} shows up after a win, I am at least listening.`;
+  }
+  if (q.includes("movie") || q.includes("game") || q.includes("video game") || q.includes("show")) {
+    return `${opener} I like anything with competition in it. If ${idea} has clutch moments, bad decisions, and somebody yelling at a screen, that sounds like our bench during playoffs.`;
+  }
+  if (q.includes("fight") || q.includes("beat") || q.includes("win against")) {
+    return `${opener} I am not trying to start drama, but I like my chances when the whistle blows. If ${topTeammate ? topTeammate.name : "my teammates"} has my back, I am walking in confident.`;
+  }
+  if (q.includes("dream") || q.includes("future") || q.includes("career")) {
+    return `${opener} Long term, I want people to remember me as ${profile.personality}, tough, and useful in big games. The dream is simple: win enough that nobody can call it luck.`;
+  }
+  if (q.includes("embarrassing") || q.includes("weird") || q.includes("goofy")) {
+    return `${opener} My weird thing is ${profile.goofyHabit}. It sounds ridiculous until I have a good game, then suddenly everybody calls it a routine.`;
+  }
+  if (q.includes("advice") || q.includes("tip")) {
+    return `${opener} My advice is this: do the boring stuff until it becomes automatic. Also hydrate, because cramping up is the least cool way to become a story.`;
+  }
+  if (q.includes("yes or no")) {
+    return `${opener} My answer is yes, but with a coach-sized asterisk. If it hurts the team, no. If it helps us win, absolutely yes.`;
+  }
+  return `${opener} I connect it back to lacrosse like this: ${moodLine} ${goofyLine} ${statFlex}`;
 }
 
 function localPlayerInterviewAnswer(player, question) {
@@ -2948,7 +3013,7 @@ function localPlayerInterviewAnswer(player, question) {
   if (q.includes("coach") || q.includes("gm") || q.includes("manager")) return `The GM has a plan. If we keep adding IQ, toughness, and speed, this team can become dangerous.`;
   if (q.includes("bad") || q.includes("lose") || q.includes("struggle")) return confidence > 72 ? `We are not hiding from it. Losses test your leaders, and I want to be one of those guys.` : `It has been frustrating, but nobody is quitting. We need cleaner starts and better possessions.`;
   if (q.includes("win") || q.includes("record") || q.includes("season")) return `We are ${team.wins}-${team.losses}. That record tells part of the story, but the next game is the only one we can change.`;
-  return `I don't know, man. What's the next question?`;
+  return simulatedPlayerLLM(player, question, { team, profile, trend, statLine, confidence, topTeammate, role, teamMood });
 }
 
 function addPlayerInterview() {
