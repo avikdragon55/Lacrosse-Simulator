@@ -53,6 +53,9 @@ let interviewMessages = [];
 let interviewAwaiting = false;
 let aiInterviewEnabled = false;
 let aiInterviewChecked = false;
+let spotifyController = null;
+let spotifyPlaying = false;
+let spotifySongKey = "stolen-dance";
 let music = {
   ctx: null,
   master: null,
@@ -3684,16 +3687,56 @@ function hideNewsToast() {
   qs("#news-toast").classList.add("hidden");
 }
 
-function spotifyTrackUrl(song) {
-  return `https://open.spotify.com/track/${song.id}`;
-}
-
 function loadSpotifySong(songKey) {
   const song = spotifySongs[songKey] || spotifySongs["stolen-dance"];
-  const frame = qs("#spotify-frame");
-  frame.src = `https://open.spotify.com/embed/track/${song.id}?utm_source=generator&theme=0`;
-  frame.title = `${song.name} by ${song.artist} on Spotify`;
-  qs("#spotify-open").href = spotifyTrackUrl(song);
+  spotifySongKey = songKey;
+  spotifyPlaying = false;
+  if (spotifyController) spotifyController.loadUri(`spotify:track:${song.id}`);
+  renderSpotifyPlayButton();
+}
+
+function initializeSpotifyApi() {
+  if (document.querySelector("script[data-spotify-iframe-api]")) return;
+  window.onSpotifyIframeApiReady = (IFrameAPI) => {
+    const song = spotifySongs[spotifySongKey] || spotifySongs["stolen-dance"];
+    IFrameAPI.createController(
+      qs("#spotify-embed-controller"),
+      { width: 320, height: 152, uri: `spotify:track:${song.id}` },
+      (controller) => {
+        spotifyController = controller;
+        controller.addListener("playback_started", () => {
+          spotifyPlaying = true;
+          renderSpotifyPlayButton();
+        });
+        controller.addListener("playback_update", (event) => {
+          spotifyPlaying = !event.data.isPaused;
+          renderSpotifyPlayButton();
+        });
+        renderSpotifyPlayButton();
+      }
+    );
+  };
+  const script = document.createElement("script");
+  script.src = "https://open.spotify.com/embed/iframe-api/v1";
+  script.async = true;
+  script.dataset.spotifyIframeApi = "true";
+  document.body.appendChild(script);
+}
+
+function renderSpotifyPlayButton() {
+  const button = qs("#spotify-play");
+  if (!button) return;
+  button.disabled = !spotifyController;
+  button.classList.toggle("playing", spotifyPlaying);
+  button.innerHTML = spotifyPlaying ? "&#10074;&#10074;" : "&#9654;";
+  button.title = spotifyPlaying ? "Pause Spotify song" : "Play selected Spotify song";
+  button.setAttribute("aria-label", button.title);
+}
+
+function toggleSpotifyPlayback() {
+  if (!spotifyController) return;
+  if (music.on) stopCalmMusic();
+  spotifyController.togglePlay();
 }
 
 function openSpotifyPlayer() {
@@ -3705,8 +3748,9 @@ function openSpotifyPlayer() {
 
 function closeSpotifyPlayer() {
   const player = qs("#spotify-player");
-  const frame = qs("#spotify-frame");
-  if (frame) frame.src = "about:blank";
+  if (spotifyController) spotifyController.pause();
+  spotifyPlaying = false;
+  renderSpotifyPlayButton();
   if (player) player.classList.add("hidden");
 }
 
@@ -4236,6 +4280,7 @@ qs("#theme-toggle").addEventListener("click", toggleTheme);
 qs("#music-select").addEventListener("change", (event) => changeMusicSong(event.target.value));
 qs("#spotify-toggle").addEventListener("click", openSpotifyPlayer);
 qs("#spotify-close").addEventListener("click", closeSpotifyPlayer);
+qs("#spotify-play").addEventListener("click", toggleSpotifyPlayback);
 qs("#spotify-select").addEventListener("change", (event) => changeSpotifySong(event.target.value));
 qs("#run-lottery").addEventListener("click", () => confirmAction(
   "Run Lottery",
@@ -4360,6 +4405,7 @@ function showStartupError(error) {
 try {
   normalizeOwnerAccounts();
   applyTheme(localStorage.getItem(themeStorageKey) === "light" ? "light" : "dark");
+  initializeSpotifyApi();
   drawField();
   setAccountMode("signup");
 } catch (error) {

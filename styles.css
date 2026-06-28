@@ -484,20 +484,51 @@ button {
   font-weight: 800;
 }
 
-.spotify-player iframe {
+.spotify-play-stage {
   width: 100%;
-  height: 152px;
-  display: block;
+  min-height: 116px;
+  display: grid;
+  place-items: center;
   background: #121212;
-  border: 0;
+  border: 1px solid #2d2d2d;
   border-radius: 8px;
 }
 
-.spotify-player a {
-  color: #71ff9e;
-  font-size: 12px;
-  font-weight: 850;
-  text-align: center;
+.spotify-play {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 0 5px;
+  color: #03110a;
+  background: #1ed760;
+  border: 2px solid #71ff9e;
+  border-radius: 50%;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: 0 0 24px rgba(30, 215, 96, 0.5);
+}
+
+.spotify-play.playing {
+  padding-left: 0;
+  color: white;
+  background: #191414;
+}
+
+.spotify-play:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.spotify-embed-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 320px;
+  height: 152px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .team-card,

@@ -101,8 +101,12 @@
               <option value="what-you-saying">What You Saying - Lil Uzi Vert</option>
               <option value="praise-the-lord">Praise The Lord - A$AP Rocky, Skepta</option>
             </select>
-            <iframe id="spotify-frame" title="Spotify song player" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-            <a id="spotify-open" href="https://open.spotify.com" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+            <div class="spotify-play-stage">
+              <button id="spotify-play" class="spotify-play" type="button" title="Play selected Spotify song" aria-label="Play selected Spotify song" disabled>&#9654;</button>
+            </div>
+          </div>
+          <div class="spotify-embed-host" aria-hidden="true">
+            <div id="spotify-embed-controller"></div>
           </div>
         </aside>
 
