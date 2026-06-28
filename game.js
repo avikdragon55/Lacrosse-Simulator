@@ -70,6 +70,25 @@ let music = {
   beatStep: 0,
   bassStep: 0
 };
+const onevone = {
+  mode: "bot",
+  running: false,
+  paused: false,
+  ended: false,
+  keys: new Set(),
+  score: [0, 0],
+  timeLeft: 95,
+  countdown: 0,
+  players: [],
+  ball: null,
+  powerCooldown: [0, 0],
+  powerActive: [0, 0],
+  pickupLock: 0,
+  botDecision: 0,
+  lastTime: 0,
+  animationId: null,
+  status: "Faceoff"
+};
 const musicSongs = {
   calm: {
     name: "Calm Pad",
@@ -2411,7 +2430,7 @@ function teamUSARosterHtml(roster) {
 function tabAllowed(tab) {
   if (state.rosterCutMode && !rosterNeedsCuts(state.teams[state.selected])) state.rosterCutMode = false;
   if (tab === "owner") return isOwnerAccount();
-  if (state.rosterCutMode) return tab === "cuts" || tab === "draft" || tab === "leaderboard" || tab === "hof" || tab === "owner";
+  if (state.rosterCutMode) return tab === "cuts" || tab === "draft" || tab === "onevone" || tab === "leaderboard" || tab === "hof" || tab === "owner";
   if (tab === "draft" || tab === "advice" || tab === "news") return true;
   if (tab === "cuts") return rosterNeedsCuts(state.teams[state.selected]);
   if (tab === "lineup") return state.myDrafted.length >= draftNeeds.length;
@@ -3634,13 +3653,517 @@ function worldsLiveBox(live) {
   `;
 }
 
+function onevonePlayer(index, x, y) {
+  return {
+    index,
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    aimX: index === 0 ? 1 : -1,
+    aimY: 0,
+    radius: 20,
+    color: index === 0 ? "#20ff9f" : "#ff2bd6"
+  };
+}
+
+function resetOneVOneMatch() {
+  onevone.running = false;
+  onevone.paused = false;
+  onevone.ended = false;
+  onevone.score = [0, 0];
+  onevone.timeLeft = 95;
+  onevone.countdown = 3;
+  onevone.players = [onevonePlayer(0, 418, 270), onevonePlayer(1, 542, 270)];
+  onevone.ball = { x: 480, y: 270, vx: 0, vy: 0, owner: null, trail: [] };
+  onevone.powerCooldown = [0, 0];
+  onevone.powerActive = [0, 0];
+  onevone.pickupLock = 0.2;
+  onevone.botDecision = 0;
+  onevone.status = "Faceoff";
+  onevone.keys.clear();
+  renderOneVOneHud();
+  drawOneVOne();
+}
+
+function setOneVOneMode(mode) {
+  if (onevone.animationId) cancelAnimationFrame(onevone.animationId);
+  onevone.mode = mode === "local" ? "local" : "bot";
+  resetOneVOneMatch();
+  qs("#onevone-bot").className = onevone.mode === "bot" ? "primary" : "secondary";
+  qs("#onevone-local").className = onevone.mode === "local" ? "primary" : "secondary";
+  qs("#onevone-p2-label").textContent = onevone.mode === "bot" ? "Bot" : "Player 2";
+  qs("#onevone-overlay-title").textContent = onevone.mode === "bot" ? "Player 1 vs Bot" : "Player 1 vs Player 2";
+  qs("#onevone-start").textContent = "Start Match";
+  qs("#onevone-overlay").classList.remove("hidden");
+}
+
+function startOneVOneMatch() {
+  if (onevone.paused && !onevone.ended && onevone.timeLeft > 0) {
+    onevone.paused = false;
+  } else {
+    resetOneVOneMatch();
+  }
+  onevone.running = true;
+  onevone.lastTime = performance.now();
+  qs("#onevone-overlay").classList.add("hidden");
+  qs("#onevone-canvas").focus();
+  onevone.animationId = requestAnimationFrame(onevoneLoop);
+}
+
+function pauseOneVOneMatch() {
+  if (!onevone.running) return;
+  onevone.running = false;
+  onevone.paused = true;
+  onevone.keys.clear();
+  if (onevone.animationId) cancelAnimationFrame(onevone.animationId);
+  qs("#onevone-overlay-title").textContent = "Match Paused";
+  qs("#onevone-start").textContent = "Resume Match";
+  qs("#onevone-overlay").classList.remove("hidden");
+}
+
+function endOneVOneMatch() {
+  onevone.running = false;
+  onevone.paused = false;
+  onevone.ended = true;
+  onevone.timeLeft = 0;
+  onevone.keys.clear();
+  const result = onevone.score[0] === onevone.score[1]
+    ? `Tie Game ${onevone.score[0]}-${onevone.score[1]}`
+    : onevone.score[0] > onevone.score[1]
+      ? `Player 1 Wins ${onevone.score[0]}-${onevone.score[1]}`
+      : `${onevone.mode === "bot" ? "Bot" : "Player 2"} Wins ${onevone.score[1]}-${onevone.score[0]}`;
+  qs("#onevone-overlay-title").textContent = result;
+  qs("#onevone-start").textContent = "Play Again";
+  qs("#onevone-overlay").classList.remove("hidden");
+  onevone.status = "Final";
+  renderOneVOneHud();
+  playUiSound("champion");
+}
+
+function onevoneLoop(now) {
+  if (!onevone.running) return;
+  const dt = Math.min(0.035, Math.max(0.001, (now - onevone.lastTime) / 1000));
+  onevone.lastTime = now;
+  updateOneVOne(dt);
+  drawOneVOne();
+  renderOneVOneHud();
+  if (onevone.running) onevone.animationId = requestAnimationFrame(onevoneLoop);
+}
+
+function updateOneVOne(dt) {
+  onevone.pickupLock = Math.max(0, onevone.pickupLock - dt);
+  if (onevone.countdown > 0) {
+    onevone.countdown = Math.max(0, onevone.countdown - dt);
+    onevone.status = onevone.countdown > 0 ? `Starts in ${Math.ceil(onevone.countdown)}` : "Play";
+    updatePossessedBall();
+    return;
+  }
+
+  onevone.timeLeft = Math.max(0, onevone.timeLeft - dt);
+  if (onevone.timeLeft <= 0) {
+    endOneVOneMatch();
+    return;
+  }
+
+  for (let i = 0; i < 2; i += 1) {
+    onevone.powerCooldown[i] = Math.max(0, onevone.powerCooldown[i] - dt);
+    onevone.powerActive[i] = Math.max(0, onevone.powerActive[i] - dt);
+  }
+
+  const p1Input = {
+    x: (onevone.keys.has("KeyD") ? 1 : 0) - (onevone.keys.has("KeyA") ? 1 : 0),
+    y: (onevone.keys.has("KeyS") ? 1 : 0) - (onevone.keys.has("KeyW") ? 1 : 0)
+  };
+  moveOneVOnePlayer(onevone.players[0], p1Input.x, p1Input.y, dt);
+
+  if (onevone.mode === "local") {
+    const p2Input = {
+      x: (onevone.keys.has("ArrowRight") ? 1 : 0) - (onevone.keys.has("ArrowLeft") ? 1 : 0),
+      y: (onevone.keys.has("ArrowDown") ? 1 : 0) - (onevone.keys.has("ArrowUp") ? 1 : 0)
+    };
+    moveOneVOnePlayer(onevone.players[1], p2Input.x, p2Input.y, dt);
+  } else {
+    updateOneVOneBot(dt);
+  }
+
+  resolveOneVOnePlayers();
+  updateOneVOneBall(dt);
+  onevone.status = onevone.ball.owner === null
+    ? "Loose Ball"
+    : onevone.ball.owner === 0
+      ? "Player 1 Possession"
+      : `${onevone.mode === "bot" ? "Bot" : "Player 2"} Possession`;
+}
+
+function moveOneVOnePlayer(player, inputX, inputY, dt) {
+  const length = Math.hypot(inputX, inputY);
+  const hasBall = onevone.ball && onevone.ball.owner === player.index;
+  const power = onevone.powerActive[player.index] > 0;
+  const speed = 205 * (hasBall ? 0.9 : 1) * (power ? 1.42 : 1);
+  const x = length ? inputX / length : 0;
+  const y = length ? inputY / length : 0;
+  if (length) {
+    player.aimX = x;
+    player.aimY = y;
+  }
+  const response = Math.min(1, dt * 11);
+  player.vx += (x * speed - player.vx) * response;
+  player.vy += (y * speed - player.vy) * response;
+  player.x = Math.max(78, Math.min(882, player.x + player.vx * dt));
+  player.y = Math.max(72, Math.min(468, player.y + player.vy * dt));
+}
+
+function resolveOneVOnePlayers() {
+  const a = onevone.players[0];
+  const b = onevone.players[1];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const distance = Math.max(0.001, Math.hypot(dx, dy));
+  const minimum = a.radius + b.radius + 5;
+  if (distance >= minimum) return;
+  const push = (minimum - distance) / 2;
+  const nx = dx / distance;
+  const ny = dy / distance;
+  a.x = Math.max(78, Math.min(882, a.x - nx * push));
+  a.y = Math.max(72, Math.min(468, a.y - ny * push));
+  b.x = Math.max(78, Math.min(882, b.x + nx * push));
+  b.y = Math.max(72, Math.min(468, b.y + ny * push));
+  if (onevone.ball.owner !== null && onevone.powerActive[1 - onevone.ball.owner] > 0) {
+    const owner = onevone.ball.owner;
+    onevone.ball.owner = null;
+    onevone.ball.vx = (owner === 0 ? 1 : -1) * 150;
+    onevone.ball.vy = (Math.random() - 0.5) * 180;
+    onevone.pickupLock = 0.5;
+  }
+}
+
+function updateOneVOneBot(dt) {
+  const bot = onevone.players[1];
+  const p1 = onevone.players[0];
+  const ball = onevone.ball;
+  let targetX = ball.x;
+  let targetY = ball.y;
+  if (ball.owner === 1) {
+    targetX = 105;
+    targetY = 270 + Math.sin(onevone.timeLeft * 1.7) * 78;
+  } else if (ball.owner === 0) {
+    targetX = p1.x;
+    targetY = p1.y;
+  }
+  const dx = targetX - bot.x;
+  const dy = targetY - bot.y;
+  moveOneVOnePlayer(bot, dx, dy, dt);
+  if (ball.owner === null && Math.hypot(ball.x - bot.x, ball.y - bot.y) < 52) onevoneTryPickup(1);
+  if (onevone.powerCooldown[1] <= 0 && onevone.timeLeft < 65 && (ball.owner === 1 || onevone.score[1] < onevone.score[0])) onevoneUsePower(1);
+  onevone.botDecision -= dt;
+  if (ball.owner === 1 && bot.x < 285 && onevone.botDecision <= 0) {
+    bot.aimX = -1;
+    bot.aimY = Math.max(-0.42, Math.min(0.42, (270 - bot.y) / 180 + (Math.random() - 0.5) * 0.12));
+    onevoneShoot(1);
+    onevone.botDecision = 0.7 + Math.random() * 0.65;
+  }
+}
+
+function updatePossessedBall() {
+  if (!onevone.ball || onevone.ball.owner === null) return;
+  const player = onevone.players[onevone.ball.owner];
+  onevone.ball.x = player.x + player.aimX * 35;
+  onevone.ball.y = player.y + player.aimY * 35;
+  onevone.ball.vx = 0;
+  onevone.ball.vy = 0;
+}
+
+function updateOneVOneBall(dt) {
+  const ball = onevone.ball;
+  if (ball.owner !== null) {
+    updatePossessedBall();
+    return;
+  }
+  ball.trail.unshift({ x: ball.x, y: ball.y });
+  ball.trail = ball.trail.slice(0, 7);
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+  const drag = Math.pow(0.985, dt * 60);
+  ball.vx *= drag;
+  ball.vy *= drag;
+
+  const inGoalMouth = ball.y > 205 && ball.y < 335;
+  if (ball.x >= 900 && inGoalMouth) {
+    scoreOneVOneGoal(0);
+    return;
+  }
+  if (ball.x <= 60 && inGoalMouth) {
+    scoreOneVOneGoal(1);
+    return;
+  }
+  if (ball.y < 62 || ball.y > 478) {
+    ball.y = Math.max(62, Math.min(478, ball.y));
+    ball.vy *= -0.72;
+  }
+  if (ball.x < 68 || ball.x > 892) {
+    ball.x = Math.max(68, Math.min(892, ball.x));
+    ball.vx *= -0.72;
+  }
+}
+
+function onevoneTryPickup(index) {
+  if (!onevone.running || onevone.countdown > 0 || onevone.pickupLock > 0 || onevone.ball.owner !== null) return;
+  const player = onevone.players[index];
+  if (Math.hypot(onevone.ball.x - player.x, onevone.ball.y - player.y) > 54) return;
+  onevone.ball.owner = index;
+  onevone.ball.trail = [];
+  updatePossessedBall();
+}
+
+function onevoneShoot(index) {
+  if (!onevone.running || onevone.countdown > 0 || onevone.ball.owner !== index) return;
+  const player = onevone.players[index];
+  const aimLength = Math.max(0.001, Math.hypot(player.aimX, player.aimY));
+  const speed = onevone.powerActive[index] > 0 ? 790 : 545;
+  onevone.ball.owner = null;
+  onevone.ball.x = player.x + (player.aimX / aimLength) * 38;
+  onevone.ball.y = player.y + (player.aimY / aimLength) * 38;
+  onevone.ball.vx = (player.aimX / aimLength) * speed;
+  onevone.ball.vy = (player.aimY / aimLength) * speed;
+  onevone.pickupLock = 0.42;
+  playUiSound("draft");
+}
+
+function onevoneUsePower(index) {
+  if (!onevone.running || onevone.countdown > 0 || onevone.powerCooldown[index] > 0) return;
+  onevone.powerCooldown[index] = 30;
+  onevone.powerActive[index] = 5;
+  playUiSound("trade");
+}
+
+function scoreOneVOneGoal(scorer) {
+  onevone.score[scorer] += 1;
+  const conceder = 1 - scorer;
+  const scorerPlayer = onevone.players[scorer];
+  const concederPlayer = onevone.players[conceder];
+  scorerPlayer.x = 480;
+  scorerPlayer.y = scorer === 0 ? 225 : 315;
+  scorerPlayer.vx = 0;
+  scorerPlayer.vy = 0;
+  concederPlayer.x = conceder === 0 ? 170 : 790;
+  concederPlayer.y = 270;
+  concederPlayer.vx = 0;
+  concederPlayer.vy = 0;
+  concederPlayer.aimX = conceder === 0 ? 1 : -1;
+  concederPlayer.aimY = 0;
+  onevone.ball = {
+    x: concederPlayer.x + concederPlayer.aimX * 35,
+    y: concederPlayer.y,
+    vx: 0,
+    vy: 0,
+    owner: conceder,
+    trail: []
+  };
+  onevone.countdown = 3;
+  onevone.pickupLock = 0.4;
+  onevone.status = `${scorer === 0 ? "Player 1" : onevone.mode === "bot" ? "Bot" : "Player 2"} Goal`;
+  playUiSound("champion");
+}
+
+function renderOneVOneHud() {
+  if (!qs("#onevone-clock")) return;
+  const seconds = Math.max(0, Math.ceil(onevone.timeLeft));
+  qs("#onevone-clock").textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  qs("#onevone-p1-score").textContent = onevone.score[0];
+  qs("#onevone-p2-score").textContent = onevone.score[1];
+  qs("#onevone-status").textContent = onevone.status;
+  qs("#onevone-p1-power").textContent = onevonePowerLabel(0, "P1");
+  qs("#onevone-p2-power").textContent = onevonePowerLabel(1, onevone.mode === "bot" ? "BOT" : "P2");
+}
+
+function onevonePowerLabel(index, label) {
+  if (onevone.powerActive[index] > 0) return `${label} POWER ${Math.ceil(onevone.powerActive[index])}s`;
+  if (onevone.powerCooldown[index] > 0) return `${label} Power ${Math.ceil(onevone.powerCooldown[index])}s`;
+  return `${label} Power Ready`;
+}
+
+function drawOneVOne() {
+  const canvas = qs("#onevone-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  drawOneVOneField(ctx);
+  if (!onevone.players.length || !onevone.ball) return;
+  onevone.ball.trail.slice().reverse().forEach((point, index, trail) => {
+    ctx.globalAlpha = (index + 1) / trail.length * 0.32;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 3 + index * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  onevone.players.forEach((player) => drawOneVOnePlayer(ctx, player));
+  ctx.shadowColor = "#ffffff";
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(onevone.ball.x, onevone.ball.y, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#c8ced1";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if (onevone.running && onevone.countdown > 0) {
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.fillRect(0, 0, 960, 540);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 92px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "#00e5ff";
+    ctx.shadowBlur = 22;
+    ctx.fillText(String(Math.ceil(onevone.countdown)), 480, 270);
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawOneVOneField(ctx) {
+  ctx.clearRect(0, 0, 960, 540);
+  ctx.fillStyle = "#0b5f3e";
+  ctx.fillRect(0, 0, 960, 540);
+  for (let i = 0; i < 10; i += 1) {
+    ctx.fillStyle = i % 2 ? "#0d6945" : "#0a593a";
+    ctx.fillRect(i * 96, 0, 96, 540);
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.92)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(60, 60, 840, 420);
+  ctx.beginPath();
+  ctx.moveTo(480, 60);
+  ctx.lineTo(480, 480);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(480, 270, 62, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(480, 270, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.78)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(60, 270, 78, -Math.PI / 2, Math.PI / 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(900, 270, 78, Math.PI / 2, Math.PI * 1.5);
+  ctx.stroke();
+  drawOneVOneGoal(ctx, 60, 205, -1);
+  drawOneVOneGoal(ctx, 900, 205, 1);
+}
+
+function drawOneVOneGoal(ctx, lineX, topY, direction) {
+  const backX = lineX + direction * 42;
+  const bottomY = topY + 130;
+  ctx.save();
+  ctx.strokeStyle = "#ff4f69";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(lineX, topY);
+  ctx.lineTo(lineX, bottomY);
+  ctx.moveTo(lineX, topY);
+  ctx.lineTo(backX, topY + 18);
+  ctx.lineTo(backX, bottomY - 18);
+  ctx.lineTo(lineX, bottomY);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(235,245,255,0.72)";
+  ctx.lineWidth = 1.2;
+  for (let y = topY + 12; y < bottomY; y += 13) {
+    const inset = Math.min(32, (y - topY) * 0.22, (bottomY - y) * 0.22);
+    ctx.beginPath();
+    ctx.moveTo(lineX, y);
+    ctx.lineTo(backX + direction * -inset * 0.08, y);
+    ctx.stroke();
+  }
+  for (let step = 0; step <= 5; step += 1) {
+    const t = step / 5;
+    ctx.beginPath();
+    ctx.moveTo(lineX + (backX - lineX) * t, topY + 18 * t);
+    ctx.lineTo(lineX + (backX - lineX) * t, bottomY - 18 * t);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawOneVOnePlayer(ctx, player) {
+  const power = onevone.powerActive[player.index] > 0;
+  const aimLength = Math.max(0.001, Math.hypot(player.aimX, player.aimY));
+  const ax = player.aimX / aimLength;
+  const ay = player.aimY / aimLength;
+  ctx.save();
+  if (power) {
+    ctx.shadowColor = player.color;
+    ctx.shadowBlur = 28;
+  }
+  ctx.strokeStyle = "#eef8ff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(player.x - ax * 10, player.y - ay * 10);
+  ctx.lineTo(player.x + ax * 40, player.y + ay * 40);
+  ctx.stroke();
+  ctx.strokeStyle = player.color;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(player.x + ax * 45, player.y + ay * 45, 10, 7, Math.atan2(ay, ax), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = player.color;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.beginPath();
+  ctx.arc(player.x + ax * 5, player.y + ay * 5, 12, -1.5, 1.5);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 13px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(player.index === 0 ? "P1" : onevone.mode === "bot" ? "BOT" : "P2", player.x, player.y - 30);
+  ctx.restore();
+}
+
+function onevoneTabActive() {
+  return qs("#onevone-view") && qs("#onevone-view").classList.contains("active");
+}
+
+function handleOneVOneKeyDown(event) {
+  if (!onevoneTabActive()) return;
+  const gameKeys = ["KeyW", "KeyA", "KeyS", "KeyD", "KeyX", "KeyZ", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyN", "KeyM", "Enter"];
+  if (!gameKeys.includes(event.code)) return;
+  event.preventDefault();
+  onevone.keys.add(event.code);
+  if (event.repeat) return;
+  if (event.code === "KeyX") onevoneTryPickup(0);
+  if (event.code === "Space") onevoneShoot(0);
+  if (event.code === "KeyZ") onevoneUsePower(0);
+  if (onevone.mode === "local") {
+    if (event.code === "KeyN") onevoneTryPickup(1);
+    if (event.code === "Enter") onevoneShoot(1);
+    if (event.code === "KeyM") onevoneUsePower(1);
+  }
+}
+
+function handleOneVOneKeyUp(event) {
+  onevone.keys.delete(event.code);
+}
+
 function setTab(tab) {
+  if (tab !== "onevone") pauseOneVOneMatch();
   if (!tabAllowed(tab)) {
     showLockedTab(tab);
     return;
   }
   qsa(".tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
   qsa(".tab-view").forEach((view) => view.classList.toggle("active", view.id === `${tab}-view`));
+  if (tab === "onevone") requestAnimationFrame(drawOneVOne);
 }
 
 let pendingConfirm = null;
@@ -4242,6 +4765,9 @@ qs("#music-select").addEventListener("change", (event) => changeMusicSong(event.
 qs("#youtube-toggle").addEventListener("click", openYouTubePlayer);
 qs("#youtube-close").addEventListener("click", closeYouTubePlayer);
 qs("#youtube-select").addEventListener("change", (event) => changeYouTubeSong(event.target.value));
+qs("#onevone-bot").addEventListener("click", () => setOneVOneMode("bot"));
+qs("#onevone-local").addEventListener("click", () => setOneVOneMode("local"));
+qs("#onevone-start").addEventListener("click", startOneVOneMatch);
 qs("#run-lottery").addEventListener("click", () => confirmAction(
   "Run Lottery",
   "Continue and reveal the full weighted draft lottery order?",
@@ -4350,6 +4876,9 @@ qs("#owner-console-main").addEventListener("click", handleOwnerConsoleClick);
 qs("#celebration-close").addEventListener("click", hideCelebration);
 qsa(".tab").forEach((btn) => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
 window.addEventListener("resize", drawField);
+window.addEventListener("keydown", handleOneVOneKeyDown, { passive: false });
+window.addEventListener("keyup", handleOneVOneKeyUp);
+window.addEventListener("blur", () => onevone.keys.clear());
 
 function showStartupError(error) {
   const grid = document.querySelector("#teams-grid");
@@ -4365,6 +4894,7 @@ function showStartupError(error) {
 try {
   normalizeOwnerAccounts();
   applyTheme(localStorage.getItem(themeStorageKey) === "light" ? "light" : "dark");
+  setOneVOneMode("bot");
   drawField();
   setAccountMode("signup");
 } catch (error) {
