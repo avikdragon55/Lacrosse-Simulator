@@ -184,7 +184,10 @@ function serveStatic(req, res) {
       res.end("Not found");
       return;
     }
-    res.writeHead(200, { "Content-Type": mime[path.extname(filePath)] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": mime[path.extname(filePath)] || "application/octet-stream",
+      "Referrer-Policy": "strict-origin-when-cross-origin"
+    });
     res.end(data);
   });
 }

@@ -493,9 +493,11 @@ function resetGame() {
   };
   state.schedule = makeSchedule();
   const intro = qs("#intro-screen");
+  const rules = qs("#rules-screen");
   const teamSelect = qs("#team-select");
   const game = qs("#game");
   if (intro) intro.classList.remove("hidden");
+  if (rules) rules.classList.add("hidden");
   if (teamSelect) teamSelect.classList.add("hidden");
   if (game) game.classList.add("hidden");
   renderTeams();
@@ -720,6 +722,7 @@ function inferIdCounter(savedState) {
 
 function showGameForLoadedAccount() {
   qs("#account-modal").classList.add("hidden");
+  qs("#rules-screen").classList.add("hidden");
   if (state.selected === null) {
     qs("#intro-screen").classList.add("hidden");
     qs("#team-select").classList.remove("hidden");
@@ -805,7 +808,6 @@ function startAccountOver() {
   resetGame();
   saveAccountProgress();
   qs("#account-modal").classList.add("hidden");
-  showTeamSelect();
 }
 
 function setAccountMode(mode) {
@@ -998,6 +1000,7 @@ function selectTeam(id) {
   state.ownerGoalReviewPending = false;
   state.fired = false;
   qs("#game").classList.remove("hidden");
+  qs("#rules-screen").classList.add("hidden");
   qs("#team-select").classList.add("hidden");
   qs("#game").scrollIntoView({ behavior: "smooth", block: "start" });
   setTab("draft");
@@ -1021,8 +1024,16 @@ function showOwnerGoalPrompt() {
   showCelebration("Owner Goal", `${state.ownerGoal.targetWins} Wins`, state.ownerGoal.message, "goal");
 }
 
+function showRulesScreen() {
+  qs("#intro-screen").classList.add("hidden");
+  qs("#rules-screen").classList.remove("hidden");
+  qs("#team-select").classList.add("hidden");
+  qs("#rules-screen").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function showTeamSelect() {
   qs("#intro-screen").classList.add("hidden");
+  qs("#rules-screen").classList.add("hidden");
   qs("#team-select").classList.remove("hidden");
   qs("#team-select").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -3687,7 +3698,8 @@ function hideNewsToast() {
 function loadYouTubeSong(songKey) {
   const song = youtubeSongs[songKey] || youtubeSongs["stolen-dance"];
   const frame = qs("#youtube-frame");
-  frame.src = `https://www.youtube.com/embed/${song.id}?playsinline=1&rel=0`;
+  const webOrigin = /^https?:$/.test(window.location.protocol) ? `&origin=${encodeURIComponent(window.location.origin)}` : "";
+  frame.src = `https://www.youtube-nocookie.com/embed/${song.id}?playsinline=1&rel=0${webOrigin}`;
   frame.title = `${song.name} by ${song.artist} on YouTube`;
 }
 
@@ -4185,6 +4197,7 @@ function hideCelebration() {
 
 function drawField() {
   const canvas = qs("#field-art");
+  if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   canvas.width = canvas.clientWidth * dpr;
@@ -4220,12 +4233,9 @@ function drawField() {
 
 qs("#get-started").addEventListener("click", () => {
   startCalmMusic();
-  confirmAction(
-    "Start Season Setup",
-    "Continue to team selection?",
-    showTeamSelect
-  );
+  showRulesScreen();
 });
+qs("#continue-to-teams").addEventListener("click", showTeamSelect);
 qs("#music-toggle").addEventListener("click", toggleCalmMusic);
 qs("#theme-toggle").addEventListener("click", toggleTheme);
 qs("#music-select").addEventListener("change", (event) => changeMusicSong(event.target.value));

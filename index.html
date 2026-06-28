@@ -9,22 +9,27 @@
   <body>
     <main class="shell">
       <section class="hero intro-screen" id="intro-screen">
-        <canvas id="field-art" aria-hidden="true"></canvas>
-        <div class="hero-content">
-          <p class="eyebrow">Professional Lacrosse Simulator</p>
-          <h1>PLS</h1>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-content intro-brand">
+          <div class="title-cloud">
+            <h1>Lacrosse Simulator</h1>
+          </div>
           <p class="creator-credit">Made by Avik Hardy</p>
-          <p class="intro">
-            Pick a club, watch the lottery machine reveal the draft order, build a roster
-            under budget, simulate the season, then chase playoffs and Worlds.
-          </p>
+          <button id="get-started" class="start-button">Continue</button>
+        </div>
+      </section>
+
+      <section class="rules-screen hidden" id="rules-screen">
+        <div class="rules-content">
+          <p class="eyebrow">Game Rules</p>
+          <h2>Build a contender</h2>
           <div class="instruction-grid">
             <div><strong>1</strong><span>Choose one of 20 teams with shuffled last-season results.</span></div>
             <div><strong>2</strong><span>Run a weighted lottery where worse teams have better odds.</span></div>
             <div><strong>3</strong><span>Draft 5 players with expensive stars and cheap depth players.</span></div>
             <div><strong>4</strong><span>Sim a 20-game season, handle trades, then play playoffs and Worlds.</span></div>
           </div>
-          <button id="get-started" class="start-button">Get Started</button>
+          <button id="continue-to-teams" class="start-button">Continue to Teams</button>
         </div>
       </section>
 
@@ -101,7 +106,7 @@
               <option value="what-you-saying">What You Saying - Lil Uzi Vert</option>
               <option value="praise-the-lord">Praise The Lord - A$AP Rocky, Skepta</option>
             </select>
-            <iframe id="youtube-frame" title="YouTube song player" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+            <iframe id="youtube-frame" title="YouTube song player" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
           </div>
         </aside>
 

@@ -64,6 +64,10 @@ class PLSHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def end_headers(self):
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        super().end_headers()
+
     def do_GET(self):
         if self.path == "/api/interview-status":
             self.send_json(200, {"enabled": bool(os.environ.get("OPENAI_API_KEY")), "model": MODEL})
