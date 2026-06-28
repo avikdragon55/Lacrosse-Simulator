@@ -421,19 +421,19 @@ button {
   box-shadow: 0 0 16px rgba(255, 43, 214, 0.2);
 }
 
-.spotify-toggle {
+.youtube-toggle {
   width: calc(100% - 36px);
   min-height: 38px;
   margin: -14px 18px 18px;
-  color: #03110a;
-  background: #1ed760;
-  border: 1px solid #71ff9e;
+  color: white;
+  background: #ff0033;
+  border: 1px solid #ff6b88;
   border-radius: 8px;
   font-weight: 950;
-  box-shadow: 0 0 18px rgba(30, 215, 96, 0.3);
+  box-shadow: 0 0 18px rgba(255, 0, 51, 0.32);
 }
 
-.spotify-player {
+.youtube-player {
   width: calc(100% - 36px);
   display: grid;
   gap: 9px;
@@ -441,23 +441,23 @@ button {
   padding: 10px;
   color: white;
   background: #0b0b0b;
-  border: 1px solid #1ed760;
+  border: 1px solid #ff3159;
   border-radius: 8px;
-  box-shadow: 0 0 20px rgba(30, 215, 96, 0.2);
+  box-shadow: 0 0 20px rgba(255, 0, 51, 0.22);
 }
 
-.spotify-player.hidden {
+.youtube-player.hidden {
   display: none;
 }
 
-.spotify-player-head {
+.youtube-player-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.spotify-close {
+.youtube-close {
   width: 30px;
   height: 30px;
   display: grid;
@@ -471,7 +471,7 @@ button {
   line-height: 1;
 }
 
-.spotify-player select {
+.youtube-player select {
   width: 100%;
   min-height: 38px;
   padding: 0 8px;
@@ -484,51 +484,13 @@ button {
   font-weight: 800;
 }
 
-.spotify-play-stage {
+.youtube-player iframe {
   width: 100%;
-  min-height: 116px;
-  display: grid;
-  place-items: center;
-  background: #121212;
-  border: 1px solid #2d2d2d;
-  border-radius: 8px;
-}
-
-.spotify-play {
-  width: 72px;
-  height: 72px;
-  display: grid;
-  place-items: center;
-  padding: 0 0 0 5px;
-  color: #03110a;
-  background: #1ed760;
-  border: 2px solid #71ff9e;
-  border-radius: 50%;
-  font-size: 30px;
-  line-height: 1;
-  box-shadow: 0 0 24px rgba(30, 215, 96, 0.5);
-}
-
-.spotify-play.playing {
-  padding-left: 0;
-  color: white;
-  background: #191414;
-}
-
-.spotify-play:disabled {
-  cursor: wait;
-  opacity: 0.58;
-}
-
-.spotify-embed-host {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  width: 320px;
-  height: 152px;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
+  height: 200px;
+  display: block;
+  background: #000000;
+  border: 0;
+  border-radius: 6px;
 }
 
 .team-card,

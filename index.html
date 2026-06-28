@@ -84,13 +84,13 @@
               <option value="drill">Midnight Drill</option>
             </select>
           </label>
-          <button id="spotify-toggle" class="spotify-toggle" type="button">Spotify Songs</button>
-          <div id="spotify-player" class="spotify-player hidden">
-            <div class="spotify-player-head">
-              <strong>Spotify Songs</strong>
-              <button id="spotify-close" class="spotify-close" type="button" title="Close Spotify player" aria-label="Close Spotify player">&times;</button>
+          <button id="youtube-toggle" class="youtube-toggle" type="button">Full Songs</button>
+          <div id="youtube-player" class="youtube-player hidden">
+            <div class="youtube-player-head">
+              <strong>YouTube Songs</strong>
+              <button id="youtube-close" class="youtube-close" type="button" title="Close YouTube player" aria-label="Close YouTube player">&times;</button>
             </div>
-            <select id="spotify-select" aria-label="Choose a Spotify song">
+            <select id="youtube-select" aria-label="Choose a YouTube song">
               <option value="stolen-dance">Stolen Dance - Milky Chance</option>
               <option value="the-way-i-are">The Way I Are - Timbaland</option>
               <option value="less-i-know">The Less I Know The Better - Tame Impala</option>
@@ -101,12 +101,7 @@
               <option value="what-you-saying">What You Saying - Lil Uzi Vert</option>
               <option value="praise-the-lord">Praise The Lord - A$AP Rocky, Skepta</option>
             </select>
-            <div class="spotify-play-stage">
-              <button id="spotify-play" class="spotify-play" type="button" title="Play selected Spotify song" aria-label="Play selected Spotify song" disabled>&#9654;</button>
-            </div>
-          </div>
-          <div class="spotify-embed-host" aria-hidden="true">
-            <div id="spotify-embed-controller"></div>
+            <iframe id="youtube-frame" title="YouTube song player" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
           </div>
         </aside>
 

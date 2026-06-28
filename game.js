@@ -53,9 +53,6 @@ let interviewMessages = [];
 let interviewAwaiting = false;
 let aiInterviewEnabled = false;
 let aiInterviewChecked = false;
-let spotifyController = null;
-let spotifyPlaying = false;
-let spotifySongKey = "stolen-dance";
 let music = {
   ctx: null,
   master: null,
@@ -273,16 +270,16 @@ const musicSongs = {
     melody: [739.99, 659.25, 587.33, 493.88, 440, 493.88, 587.33, 0]
   }
 };
-const spotifySongs = {
-  "stolen-dance": { name: "Stolen Dance", artist: "Milky Chance", id: "1tvrQvPSxT4mdEY1zlBUN5" },
-  "the-way-i-are": { name: "The Way I Are", artist: "Timbaland, Keri Hilson, D.O.E.", id: "2bLqfJjuC5syrsgDsZfGmn" },
-  "less-i-know": { name: "The Less I Know The Better", artist: "Tame Impala", id: "6K4t31amVTZDgR3sKmwUJJ" },
-  "apologize": { name: "Apologize", artist: "Timbaland, OneRepublic", id: "6ucR4KfvsBFWCMVFDvyKKl" },
-  "fear": { name: "FEAR", artist: "NF", id: "3HfKlhohNNTLIv2t9uvmzz" },
-  "ian-text-back": { name: "Ian text back", artist: "Lildrew", id: "2WcFARqBr3sbIKrorGqYwq" },
-  "700-club": { name: "700 CLUB", artist: "Logic, Wiz Khalifa", id: "3Jphy67bYJzDwmag3PKDAK" },
-  "what-you-saying": { name: "What You Saying", artist: "Lil Uzi Vert", id: "4zfmnEFaedgOga24fJPLeP" },
-  "praise-the-lord": { name: "Praise The Lord (Da Shine)", artist: "A$AP Rocky, Skepta", id: "7ycWLEP1GsNjVvcjawXz3z" }
+const youtubeSongs = {
+  "stolen-dance": { name: "Stolen Dance", artist: "Milky Chance", id: "iX-QaNzd-0Y" },
+  "the-way-i-are": { name: "The Way I Are", artist: "Timbaland, Keri Hilson, D.O.E.", id: "U5rLz5AZBIA" },
+  "less-i-know": { name: "The Less I Know The Better", artist: "Tame Impala", id: "sBzrzS1Ag_g" },
+  "apologize": { name: "Apologize", artist: "Timbaland, OneRepublic", id: "ZSM3w1v-A_Y" },
+  "fear": { name: "FEAR", artist: "NF", id: "lLFoLJIXayk" },
+  "ian-text-back": { name: "Ian text back", artist: "Lildrew", id: "qgBc5niQyO4" },
+  "700-club": { name: "700 CLUB", artist: "Logic, Wiz Khalifa", id: "xzFBXqi6imw" },
+  "what-you-saying": { name: "What You Saying", artist: "Lil Uzi Vert", id: "s_TUESTU7_4" },
+  "praise-the-lord": { name: "Praise The Lord (Da Shine)", artist: "A$AP Rocky, Skepta", id: "Kbj2Zss-5GY" }
 };
 const accountStorageKey = "plsAccountsV1";
 const leaderboardStorageKey = "plsLeaderboardV1";
@@ -3687,81 +3684,35 @@ function hideNewsToast() {
   qs("#news-toast").classList.add("hidden");
 }
 
-function loadSpotifySong(songKey) {
-  const song = spotifySongs[songKey] || spotifySongs["stolen-dance"];
-  spotifySongKey = songKey;
-  spotifyPlaying = false;
-  if (spotifyController) spotifyController.loadUri(`spotify:track:${song.id}`);
-  renderSpotifyPlayButton();
+function loadYouTubeSong(songKey) {
+  const song = youtubeSongs[songKey] || youtubeSongs["stolen-dance"];
+  const frame = qs("#youtube-frame");
+  frame.src = `https://www.youtube.com/embed/${song.id}?playsinline=1&rel=0`;
+  frame.title = `${song.name} by ${song.artist} on YouTube`;
 }
 
-function initializeSpotifyApi() {
-  if (document.querySelector("script[data-spotify-iframe-api]")) return;
-  window.onSpotifyIframeApiReady = (IFrameAPI) => {
-    const song = spotifySongs[spotifySongKey] || spotifySongs["stolen-dance"];
-    IFrameAPI.createController(
-      qs("#spotify-embed-controller"),
-      { width: 320, height: 152, uri: `spotify:track:${song.id}` },
-      (controller) => {
-        spotifyController = controller;
-        controller.addListener("playback_started", () => {
-          spotifyPlaying = true;
-          renderSpotifyPlayButton();
-        });
-        controller.addListener("playback_update", (event) => {
-          spotifyPlaying = !event.data.isPaused;
-          renderSpotifyPlayButton();
-        });
-        renderSpotifyPlayButton();
-      }
-    );
-  };
-  const script = document.createElement("script");
-  script.src = "https://open.spotify.com/embed/iframe-api/v1";
-  script.async = true;
-  script.dataset.spotifyIframeApi = "true";
-  document.body.appendChild(script);
-}
-
-function renderSpotifyPlayButton() {
-  const button = qs("#spotify-play");
-  if (!button) return;
-  button.disabled = !spotifyController;
-  button.classList.toggle("playing", spotifyPlaying);
-  button.innerHTML = spotifyPlaying ? "&#10074;&#10074;" : "&#9654;";
-  button.title = spotifyPlaying ? "Pause Spotify song" : "Play selected Spotify song";
-  button.setAttribute("aria-label", button.title);
-}
-
-function toggleSpotifyPlayback() {
-  if (!spotifyController) return;
+function openYouTubePlayer() {
   if (music.on) stopCalmMusic();
-  spotifyController.togglePlay();
-}
-
-function openSpotifyPlayer() {
-  if (music.on) stopCalmMusic();
-  const player = qs("#spotify-player");
+  const player = qs("#youtube-player");
   player.classList.remove("hidden");
-  loadSpotifySong(qs("#spotify-select").value);
+  loadYouTubeSong(qs("#youtube-select").value);
 }
 
-function closeSpotifyPlayer() {
-  const player = qs("#spotify-player");
-  if (spotifyController) spotifyController.pause();
-  spotifyPlaying = false;
-  renderSpotifyPlayButton();
+function closeYouTubePlayer() {
+  const player = qs("#youtube-player");
+  const frame = qs("#youtube-frame");
+  if (frame) frame.src = "about:blank";
   if (player) player.classList.add("hidden");
 }
 
-function changeSpotifySong(songKey) {
+function changeYouTubeSong(songKey) {
   if (music.on) stopCalmMusic();
-  loadSpotifySong(songKey);
+  loadYouTubeSong(songKey);
 }
 
 function startCalmMusic() {
   if (music.on) return;
-  closeSpotifyPlayer();
+  closeYouTubePlayer();
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) {
     renderMusicButton("Music unavailable");
@@ -4278,10 +4229,9 @@ qs("#get-started").addEventListener("click", () => {
 qs("#music-toggle").addEventListener("click", toggleCalmMusic);
 qs("#theme-toggle").addEventListener("click", toggleTheme);
 qs("#music-select").addEventListener("change", (event) => changeMusicSong(event.target.value));
-qs("#spotify-toggle").addEventListener("click", openSpotifyPlayer);
-qs("#spotify-close").addEventListener("click", closeSpotifyPlayer);
-qs("#spotify-play").addEventListener("click", toggleSpotifyPlayback);
-qs("#spotify-select").addEventListener("change", (event) => changeSpotifySong(event.target.value));
+qs("#youtube-toggle").addEventListener("click", openYouTubePlayer);
+qs("#youtube-close").addEventListener("click", closeYouTubePlayer);
+qs("#youtube-select").addEventListener("change", (event) => changeYouTubeSong(event.target.value));
 qs("#run-lottery").addEventListener("click", () => confirmAction(
   "Run Lottery",
   "Continue and reveal the full weighted draft lottery order?",
@@ -4405,7 +4355,6 @@ function showStartupError(error) {
 try {
   normalizeOwnerAccounts();
   applyTheme(localStorage.getItem(themeStorageKey) === "light" ? "light" : "dark");
-  initializeSpotifyApi();
   drawField();
   setAccountMode("signup");
 } catch (error) {
