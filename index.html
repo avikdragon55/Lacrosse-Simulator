@@ -84,6 +84,26 @@
               <option value="drill">Midnight Drill</option>
             </select>
           </label>
+          <button id="spotify-toggle" class="spotify-toggle" type="button">Spotify Songs</button>
+          <div id="spotify-player" class="spotify-player hidden">
+            <div class="spotify-player-head">
+              <strong>Spotify Songs</strong>
+              <button id="spotify-close" class="spotify-close" type="button" title="Close Spotify player" aria-label="Close Spotify player">&times;</button>
+            </div>
+            <select id="spotify-select" aria-label="Choose a Spotify song">
+              <option value="stolen-dance">Stolen Dance - Milky Chance</option>
+              <option value="the-way-i-are">The Way I Are - Timbaland</option>
+              <option value="less-i-know">The Less I Know The Better - Tame Impala</option>
+              <option value="apologize">Apologize - Timbaland, OneRepublic</option>
+              <option value="fear">FEAR - NF</option>
+              <option value="ian-text-back">Ian text back - Lildrew</option>
+              <option value="700-club">700 CLUB - Logic, Wiz Khalifa</option>
+              <option value="what-you-saying">What You Saying - Lil Uzi Vert</option>
+              <option value="praise-the-lord">Praise The Lord - A$AP Rocky, Skepta</option>
+            </select>
+            <iframe id="spotify-frame" title="Spotify song player" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+            <a id="spotify-open" href="https://open.spotify.com" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+          </div>
         </aside>
 
         <section class="content">

@@ -421,6 +421,85 @@ button {
   box-shadow: 0 0 16px rgba(255, 43, 214, 0.2);
 }
 
+.spotify-toggle {
+  width: calc(100% - 36px);
+  min-height: 38px;
+  margin: -14px 18px 18px;
+  color: #03110a;
+  background: #1ed760;
+  border: 1px solid #71ff9e;
+  border-radius: 8px;
+  font-weight: 950;
+  box-shadow: 0 0 18px rgba(30, 215, 96, 0.3);
+}
+
+.spotify-player {
+  width: calc(100% - 36px);
+  display: grid;
+  gap: 9px;
+  margin: -14px 18px 18px;
+  padding: 10px;
+  color: white;
+  background: #0b0b0b;
+  border: 1px solid #1ed760;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(30, 215, 96, 0.2);
+}
+
+.spotify-player.hidden {
+  display: none;
+}
+
+.spotify-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.spotify-close {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: white;
+  background: #171717;
+  border: 1px solid #4b4b4b;
+  border-radius: 50%;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.spotify-player select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 8px;
+  color: white;
+  background: #171717;
+  border: 1px solid #4b4b4b;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.spotify-player iframe {
+  width: 100%;
+  height: 152px;
+  display: block;
+  background: #121212;
+  border: 0;
+  border-radius: 8px;
+}
+
+.spotify-player a {
+  color: #71ff9e;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
+
 .team-card,
 .selected-card,
 .tabs,

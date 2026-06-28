@@ -270,6 +270,17 @@ const musicSongs = {
     melody: [739.99, 659.25, 587.33, 493.88, 440, 493.88, 587.33, 0]
   }
 };
+const spotifySongs = {
+  "stolen-dance": { name: "Stolen Dance", artist: "Milky Chance", id: "1tvrQvPSxT4mdEY1zlBUN5" },
+  "the-way-i-are": { name: "The Way I Are", artist: "Timbaland, Keri Hilson, D.O.E.", id: "2bLqfJjuC5syrsgDsZfGmn" },
+  "less-i-know": { name: "The Less I Know The Better", artist: "Tame Impala", id: "6K4t31amVTZDgR3sKmwUJJ" },
+  "apologize": { name: "Apologize", artist: "Timbaland, OneRepublic", id: "6ucR4KfvsBFWCMVFDvyKKl" },
+  "fear": { name: "FEAR", artist: "NF", id: "3HfKlhohNNTLIv2t9uvmzz" },
+  "ian-text-back": { name: "Ian text back", artist: "Lildrew", id: "2WcFARqBr3sbIKrorGqYwq" },
+  "700-club": { name: "700 CLUB", artist: "Logic, Wiz Khalifa", id: "3Jphy67bYJzDwmag3PKDAK" },
+  "what-you-saying": { name: "What You Saying", artist: "Lil Uzi Vert", id: "4zfmnEFaedgOga24fJPLeP" },
+  "praise-the-lord": { name: "Praise The Lord (Da Shine)", artist: "A$AP Rocky, Skepta", id: "7ycWLEP1GsNjVvcjawXz3z" }
+};
 const accountStorageKey = "plsAccountsV1";
 const leaderboardStorageKey = "plsLeaderboardV1";
 const themeStorageKey = "plsThemeV1";
@@ -3673,8 +3684,40 @@ function hideNewsToast() {
   qs("#news-toast").classList.add("hidden");
 }
 
+function spotifyTrackUrl(song) {
+  return `https://open.spotify.com/track/${song.id}`;
+}
+
+function loadSpotifySong(songKey) {
+  const song = spotifySongs[songKey] || spotifySongs["stolen-dance"];
+  const frame = qs("#spotify-frame");
+  frame.src = `https://open.spotify.com/embed/track/${song.id}?utm_source=generator&theme=0`;
+  frame.title = `${song.name} by ${song.artist} on Spotify`;
+  qs("#spotify-open").href = spotifyTrackUrl(song);
+}
+
+function openSpotifyPlayer() {
+  if (music.on) stopCalmMusic();
+  const player = qs("#spotify-player");
+  player.classList.remove("hidden");
+  loadSpotifySong(qs("#spotify-select").value);
+}
+
+function closeSpotifyPlayer() {
+  const player = qs("#spotify-player");
+  const frame = qs("#spotify-frame");
+  if (frame) frame.src = "about:blank";
+  if (player) player.classList.add("hidden");
+}
+
+function changeSpotifySong(songKey) {
+  if (music.on) stopCalmMusic();
+  loadSpotifySong(songKey);
+}
+
 function startCalmMusic() {
   if (music.on) return;
+  closeSpotifyPlayer();
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) {
     renderMusicButton("Music unavailable");
@@ -4191,6 +4234,9 @@ qs("#get-started").addEventListener("click", () => {
 qs("#music-toggle").addEventListener("click", toggleCalmMusic);
 qs("#theme-toggle").addEventListener("click", toggleTheme);
 qs("#music-select").addEventListener("change", (event) => changeMusicSong(event.target.value));
+qs("#spotify-toggle").addEventListener("click", openSpotifyPlayer);
+qs("#spotify-close").addEventListener("click", closeSpotifyPlayer);
+qs("#spotify-select").addEventListener("change", (event) => changeSpotifySong(event.target.value));
 qs("#run-lottery").addEventListener("click", () => confirmAction(
   "Run Lottery",
   "Continue and reveal the full weighted draft lottery order?",
