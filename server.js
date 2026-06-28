@@ -4,8 +4,8 @@ const path = require("path");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 5173);
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const fallbackModels = (process.env.OPENAI_FALLBACK_MODELS || "gpt-4o-mini").split(",").map((item) => item.trim()).filter(Boolean);
+const model = normalizeModelName(process.env.OPENAI_MODEL || "gpt-4o-mini");
+const fallbackModels = (process.env.OPENAI_FALLBACK_MODELS || "gpt-4o-mini").split(",").map((item) => normalizeModelName(item.trim())).filter(Boolean);
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -36,6 +36,20 @@ function sendJson(res, status, data) {
 
 function safeText(value, max = 900) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function normalizeModelName(value) {
+  const raw = String(value || "gpt-4o-mini").replace(/\s+/g, "").toLowerCase().replace(/_/g, "-");
+  const aliases = {
+    "gpt4.0mini": "gpt-4o-mini",
+    "gpt-4.0-mini": "gpt-4o-mini",
+    "gpt4omini": "gpt-4o-mini",
+    "gpt-4omini": "gpt-4o-mini",
+    "gpt-4o-mini": "gpt-4o-mini",
+    "gpt5.5": "gpt-4o-mini",
+    "gpt-5.5": "gpt-4o-mini"
+  };
+  return aliases[raw] || value || "gpt-4o-mini";
 }
 
 async function handleInterview(req, res) {

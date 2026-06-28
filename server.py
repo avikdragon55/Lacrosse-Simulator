@@ -27,10 +27,25 @@ def load_env_file():
 
 load_env_file()
 
+
+def normalize_model_name(value):
+    raw = "".join(str(value or "gpt-4o-mini").split()).lower().replace("_", "-")
+    aliases = {
+        "gpt4.0mini": "gpt-4o-mini",
+        "gpt-4.0-mini": "gpt-4o-mini",
+        "gpt4omini": "gpt-4o-mini",
+        "gpt-4omini": "gpt-4o-mini",
+        "gpt-4o-mini": "gpt-4o-mini",
+        "gpt5.5": "gpt-4o-mini",
+        "gpt-5.5": "gpt-4o-mini",
+    }
+    return aliases.get(raw, value or "gpt-4o-mini")
+
+
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "5173"))
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-FALLBACK_MODELS = [model.strip() for model in os.environ.get("OPENAI_FALLBACK_MODELS", "gpt-4o-mini").split(",") if model.strip()]
+MODEL = normalize_model_name(os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))
+FALLBACK_MODELS = [normalize_model_name(model.strip()) for model in os.environ.get("OPENAI_FALLBACK_MODELS", "gpt-4o-mini").split(",") if model.strip()]
 
 
 def safe_text(value, limit=900):

@@ -2731,25 +2731,25 @@ async function checkAiInterviewStatus() {
   const status = qs("#interview-ai-status");
   if (!status) return;
   status.textContent = aiInterviewChecked
-    ? aiInterviewEnabled ? "Real AI interviews: online" : "Real AI interviews: offline - using local fallback"
+    ? aiInterviewEnabled ? "GPT-4o mini player AI: online" : "GPT-4o mini player AI: offline - using local fallback"
     : "Checking AI...";
   try {
     const response = await fetch("/api/interview-status");
     const data = await response.json();
     aiInterviewEnabled = !!data.enabled;
     aiInterviewChecked = true;
-    status.textContent = aiInterviewEnabled ? `Real AI interviews: online (${data.model})` : "Real AI interviews: offline - start the server with OPENAI_API_KEY";
+    status.textContent = aiInterviewEnabled ? `GPT-4o mini player AI: online (${data.model})` : "GPT-4o mini player AI: offline - start the server with OPENAI_API_KEY";
   } catch (error) {
     aiInterviewEnabled = false;
     aiInterviewChecked = true;
-    status.textContent = "Real AI interviews: offline - open through the server with OPENAI_API_KEY";
+    status.textContent = "GPT-4o mini player AI: offline - open through the server with OPENAI_API_KEY";
   }
 }
 
 function renderAiInterviewStatus() {
   const status = qs("#interview-ai-status");
   if (!status) return;
-  status.textContent = aiInterviewEnabled ? "Real AI interviews: online" : "Real AI interviews: offline - using local fallback";
+  status.textContent = aiInterviewEnabled ? "GPT-4o mini player AI: online" : "GPT-4o mini player AI: offline - using local fallback";
 }
 
 function backToInterviewPlayers() {
@@ -2770,7 +2770,7 @@ function startPlayerInterview(playerId) {
   player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
   activeInterviewPlayerId = playerId;
   interviewAwaiting = false;
-  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. ${aiInterviewEnabled ? "Real AI mode is on, so this is actually me answering." : "Real AI is offline right now, so I might not be as sharp until the AI server is connected."}` }];
+  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. ${aiInterviewEnabled ? "GPT-4o mini player AI is on, so this is actually me answering." : "GPT-4o mini is offline right now, so I might not be as sharp until the AI server is connected."}` }];
   qs("#interview-title").textContent = `${player.name} Interview`;
   qs("#interview-player-list").classList.add("hidden");
   qs("#interview-chat").classList.remove("hidden");
@@ -2834,8 +2834,11 @@ function renderInterviewLog() {
 }
 
 async function playerInterviewAnswer(player, question) {
-  const aiAnswer = await fetchAiInterviewAnswer(player, question);
-  if (aiAnswer) return aiAnswer;
+  const aiResult = await fetchAiInterviewAnswer(player, question);
+  if (aiResult.answer) return aiResult.answer;
+  if (aiInterviewEnabled && aiResult.error) {
+    return `Real GPT-4o mini is not answering yet: ${aiResult.error}`;
+  }
   return localPlayerInterviewAnswer(player, question);
 }
 
@@ -2875,11 +2878,18 @@ async function fetchAiInterviewAnswer(player, question) {
         messages: interviewMessages.filter((message) => message.text !== "Thinking...")
       })
     });
-    if (!response.ok) return "";
+    if (!response.ok) {
+      let error = `server returned ${response.status}`;
+      try {
+        const data = await response.json();
+        if (data.error) error = data.error;
+      } catch (parseError) {}
+      return { answer: "", error };
+    }
     const data = await response.json();
-    return data.answer || "";
+    return { answer: data.answer || "", error: data.error || "" };
   } catch (error) {
-    return "";
+    return { answer: "", error: error && error.message ? error.message : "could not reach the AI server" };
   }
 }
 
