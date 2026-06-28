@@ -9,7 +9,8 @@ Create a file named `.env` in this folder:
 
 ```env
 OPENAI_API_KEY=your_real_openai_key_here
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_FALLBACK_MODELS=gpt-4o-mini
 PORT=5173
 ```
 
@@ -42,7 +43,8 @@ HOST=0.0.0.0 python3 server.py
 
 ```text
 OPENAI_API_KEY=your_real_openai_key_here
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_FALLBACK_MODELS=gpt-4o-mini
 ```
 
 7. Deploy the service.

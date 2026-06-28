@@ -273,6 +273,29 @@ function goalieLeadershipBonus(position) {
   return position === "Goalie" ? 4 : 0;
 }
 
+function makeInterviewProfile(name, position, rating) {
+  const colors = ["neon green", "midnight blue", "black", "red", "silver", "gold", "electric cyan", "purple", "white"];
+  const foods = ["chicken alfredo", "steak tacos", "sushi", "a huge burger", "pasta with meat sauce", "buffalo chicken wraps", "breakfast sandwiches"];
+  const music = ["rap before warmups", "hard rock in the weight room", "phonk when I need energy", "old-school hip hop", "anything fast with a heavy beat", "calmer music after games"];
+  const hobbies = ["watching film", "lifting", "playing video games", "shooting after practice", "hanging with teammates", "customizing sticks", "watching college lacrosse"];
+  const hometowns = ["Baltimore", "Denver", "Long Island", "Philadelphia", "Boston", "Dallas", "San Diego", "Minneapolis", "Charlotte", "Columbus"];
+  const vibes = rating >= 88
+    ? ["confident", "competitive", "spotlight-ready", "locked in"]
+    : rating >= 74
+      ? ["honest", "team-first", "gritty", "focused"]
+      : ["quiet", "hungry", "humble", "trying to prove myself"];
+  const hash = Math.abs(`${name}-${position}-${rating}`.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0));
+  return {
+    hometown: hometowns[hash % hometowns.length],
+    favoriteColor: colors[(hash + 1) % colors.length],
+    favoriteFood: foods[(hash + 2) % foods.length],
+    music: music[(hash + 3) % music.length],
+    hobby: hobbies[(hash + 4) % hobbies.length],
+    personality: vibes[(hash + 5) % vibes.length],
+    motto: rating >= 88 ? "Own the moment." : rating >= 74 ? "Win the next possession." : "Earn every shift."
+  };
+}
+
 function makePlayer(name, position, rating, age, salary, rookie = false) {
   const goalsBias = position === "Attackman" ? 1.45 : position === "Midfielder" ? 1.1 : position === "Defenseman" ? 0.45 : 0.08;
   const assistBias = position === "Midfielder" ? 1.35 : position === "Attackman" ? 1.1 : position === "Defenseman" ? 0.5 : 0.05;
@@ -285,6 +308,7 @@ function makePlayer(name, position, rating, age, salary, rookie = false) {
     salary,
     rookie,
     traits: makeTraits(position, rating),
+    interviewProfile: makeInterviewProfile(name, position, rating),
     goalsBias,
     assistBias,
     goals: 0,
@@ -596,12 +620,16 @@ function normalizeState() {
   state.teams.forEach((team) => {
     team.lineup = team.lineup || {};
     team.roster.forEach((player) => {
+      player.traits = player.traits || makeTraits(player.position, player.rating);
+      player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
       player.seasonsWithTeam = player.seasonsWithTeam || 0;
       player.injuryWeeks = player.injuryWeeks || 0;
     });
     ensureTeamLineup(team);
   });
   state.draftPool.forEach((player) => {
+    player.traits = player.traits || makeTraits(player.position, player.rating);
+    player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
     player.seasonsWithTeam = player.seasonsWithTeam || 0;
     player.injuryWeeks = player.injuryWeeks || 0;
   });
@@ -2739,9 +2767,10 @@ function backToInterviewPlayers() {
 function startPlayerInterview(playerId) {
   const player = state.teams[state.selected].roster.find((p) => p.id === playerId);
   if (!player) return;
+  player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
   activeInterviewPlayerId = playerId;
   interviewAwaiting = false;
-  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. ${aiInterviewEnabled ? "Real AI mode is on, so ask me anything." : "Real AI is offline right now, so I am using a simpler local brain until the AI server is running."}` }];
+  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. ${aiInterviewEnabled ? "Real AI mode is on, so this is actually me answering." : "Real AI is offline right now, so I might not be as sharp until the AI server is connected."}` }];
   qs("#interview-title").textContent = `${player.name} Interview`;
   qs("#interview-player-list").classList.add("hidden");
   qs("#interview-chat").classList.remove("hidden");
@@ -2813,6 +2842,8 @@ async function playerInterviewAnswer(player, question) {
 async function fetchAiInterviewAnswer(player, question) {
   try {
     const team = state.teams[state.selected];
+    player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
+    const standingsRank = [...state.teams].sort((a, b) => b.wins - a.wins || (b.gf - b.ga) - (a.gf - a.ga)).findIndex((t) => t.id === team.id) + 1;
     const response = await fetch("/api/interview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2820,13 +2851,26 @@ async function fetchAiInterviewAnswer(player, question) {
         question,
         player: {
           ...player,
-          trend: playerTrend(player)
+          trend: playerTrend(player),
+          profile: player.interviewProfile
         },
         team: {
           name: team.name,
           record: `${team.wins}-${team.losses}`,
+          goalsFor: team.gf,
+          goalsAgainst: team.ga,
+          standing: standingsRank,
           fanbase: team.fanbase,
-          chemistry: team.chemistry
+          chemistry: team.chemistry,
+          owner: team.owner,
+          value: team.value
+        },
+        season: {
+          week: state.week,
+          draftYear: state.draftYear,
+          seasonDone: state.seasonDone,
+          playoffsDone: state.playoffsDone,
+          worldsDone: state.worldsDone
         },
         messages: interviewMessages.filter((message) => message.text !== "Thinking...")
       })
@@ -2842,20 +2886,23 @@ async function fetchAiInterviewAnswer(player, question) {
 function localPlayerInterviewAnswer(player, question) {
   const q = question.toLowerCase();
   const team = state.teams[state.selected];
+  player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
+  const profile = player.interviewProfile;
   const trend = playerTrend(player);
   const statLine = player.position === "Goalie" ? `${player.saves} saves and ${player.wins} wins` : `${player.goals} goals and ${player.assists} assists`;
   const confidence = (player.traits.leadership + player.traits.iq + player.rating) / 3;
   const swagger = player.traits.showboat > 72 ? "I like the spotlight, no lie. " : "";
-  const colors = ["green", "blue", "black", "red", "silver", "gold", "neon cyan", "purple"];
-  const chosenColor = colors[Math.abs(String(player.id).split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % colors.length];
   if (shouldDeclineInterviewQuestion(question)) return `I'm going to pass on that one. I try to keep interviews respectful and focused on the game, the team, and life around the season.`;
-  if (q.includes("favorite color") || q.includes("favourite color")) return `My favorite color is ${chosenColor}. If I could pick a custom stick setup, I would probably work that color into it somewhere.`;
-  if (q.includes("favorite animal") || q.includes("favourite animal")) return `I would probably say a lion. That sounds basic, but I like the confidence and the way they move.`;
+  if (q.includes("favorite color") || q.includes("favourite color")) return `My favorite color is ${profile.favoriteColor}. If I could pick a custom stick setup, I would work that into it.`;
+  if (q.includes("favorite food") || q.includes("favourite food") || q.includes("eat") || q.includes("meal")) return `My go-to meal is ${profile.favoriteFood}. Before games I keep it lighter, but after a win that is what I want.`;
+  if (q.includes("music") || q.includes("song")) return `I usually like ${profile.music}. It gets me into the right headspace before a game.`;
+  if (q.includes("hobby") || q.includes("outside lacrosse") || q.includes("free time")) return `Outside lacrosse, I am usually into ${profile.hobby}. It keeps me balanced.`;
+  if (q.includes("where") && (q.includes("from") || q.includes("hometown"))) return `I'm from ${profile.hometown}. That place is part of how I play.`;
+  if (q.includes("personality") || q.includes("what are you like")) return `I would say I am ${profile.personality}. My motto is pretty simple: ${profile.motto}`;
+  if (q.includes("favorite animal") || q.includes("favourite animal")) return `I don't know, man. I never really picked a favorite animal. What's the next question?`;
   if (q.includes("favorite number") || q.includes("favourite number")) return `Favorite number? I would go with ${Math.max(1, Number(String(player.id).replace(/\D/g, "").slice(-2)) || player.rating % 99)}. It just feels like my kind of number.`;
   if (q.includes("how are you") || q.includes("how do you feel")) return `I'm feeling good. Body is holding up, the season is moving fast, and I am trying to stay locked in every week.`;
   if (q.includes("who are you") || q.includes("tell me about yourself")) return `I'm ${player.name}, ${player.position}, ${player.rating} overall. I see myself as someone who can help ${team.name} win if I keep doing my job.`;
-  if (q.includes("favorite food") || q.includes("eat") || q.includes("meal")) return `Pregame, I keep it simple: something clean, lots of water, nothing that sits heavy. After a win, though, I am not pretending I do not want a big meal.`;
-  if (q.includes("music") || q.includes("song")) return `Before games I like music that gets the energy up but keeps me locked in. Nothing too sleepy. I want to feel ready when warmups start.`;
   if (q.includes("school") || q.includes("class") || q.includes("homework")) return `Balancing school and lacrosse is real. You learn fast that if you waste time, the day disappears. Discipline matters off the field too.`;
   if (q.includes("friend") || q.includes("family")) return `My family and close friends keep me grounded. When the season gets loud, they remind me I am more than one good game or one bad game.`;
   if (q.includes("scared") || q.includes("fear")) return `I would not say scared, but you respect the moment. The players who act like they never feel anything are usually lying. You just play through it.`;
@@ -2872,7 +2919,7 @@ function localPlayerInterviewAnswer(player, question) {
   if (q.includes("goal") || q.includes("assist") || q.includes("save") || q.includes("stat") || q.includes("playing")) return `Personally, I'm at ${statLine}, and right now I feel ${trend.replace(/[🔥📈📉➖]/g, "").trim()}. I still have another level.`;
   if (q.includes("coach") || q.includes("gm") || q.includes("manager")) return `The GM has a plan. If we keep adding IQ, toughness, and speed, this team can become dangerous.`;
   if (q.includes("bad") || q.includes("lose") || q.includes("struggle")) return confidence > 72 ? `We are not hiding from it. Losses test your leaders, and I want to be one of those guys.` : `It has been frustrating, but nobody is quitting. We need cleaner starts and better possessions.`;
-  return confidence > 78 ? `${swagger}For me it comes down to preparation, trust, and making the next play. That is how I try to lead.` : `Good question. I just keep working, listen to the room, and try to help ${team.name} win games.`;
+  return `I don't know, man. What's the next question?`;
 }
 
 function addPlayerInterview() {
