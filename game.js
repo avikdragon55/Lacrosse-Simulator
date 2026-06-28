@@ -2840,6 +2840,8 @@ function renderInterviewLog() {
 }
 
 async function playerInterviewAnswer(player, question) {
+  const aiResult = await fetchAiInterviewAnswer(player, question);
+  if (aiResult.answer) return aiResult.answer;
   return localPlayerInterviewAnswer(player, question);
 }
 
