@@ -463,10 +463,33 @@ button {
   background: var(--team-color);
   border: 2px solid rgba(255, 255, 255, 0.72);
   border-radius: 50%;
-  font-size: 13px;
-  font-weight: 950;
+  padding: 7px;
   box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
   box-shadow: 0 0 16px color-mix(in srgb, var(--team-color) 65%, transparent);
+}
+
+.team-logo {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: white;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.34));
+}
+
+.team-logo .logo-accent {
+  fill: none;
+  stroke: #8effdc;
+  stroke-width: 1.5;
+}
+
+.team-logo-fallback {
+  font-size: 11px;
+  font-weight: 950;
 }
 
 .selected-card h2 {
@@ -479,7 +502,7 @@ button {
 .selected-badge {
   width: 48px;
   height: 48px;
-  font-size: 14px;
+  padding: 8px;
 }
 
 .mini-stats,

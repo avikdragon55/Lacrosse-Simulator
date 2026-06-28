@@ -62,9 +62,13 @@ let music = {
   beatTimer: null,
   pad: [],
   voices: [],
+  noiseBuffer: null,
   on: false,
   song: "calm",
-  step: 0
+  chordStep: 0,
+  melodyStep: 0,
+  beatStep: 0,
+  bassStep: 0
 };
 const musicSongs = {
   calm: {
@@ -228,6 +232,42 @@ const musicSongs = {
     pad: [261.63, 329.63, 392],
     chords: [[523.25, 659.25, 783.99], [587.33, 739.99, 880], [493.88, 659.25, 987.77], [392, 523.25, 783.99]],
     melody: [1046.5, 987.77, 783.99, 659.25, 783.99, 1174.66, 1318.51, 987.77]
+  },
+  lofi: {
+    name: "Lo-Fi Locker Room",
+    volume: 0.2,
+    chordMs: 3600,
+    melodyMs: 1500,
+    beatMs: 520,
+    beat: "lofi",
+    chordWave: "sine",
+    melodyWave: "triangle",
+    padWave: "sine",
+    padGain: [0.05, 0.035, 0.025],
+    chordGain: 0.06,
+    melodyGain: 0.035,
+    bass: [65.41, 73.42, 55, 61.74, 65.41, 49],
+    pad: [130.81, 164.81, 196],
+    chords: [[261.63, 311.13, 392, 493.88], [220, 261.63, 329.63, 415.3], [196, 246.94, 293.66, 369.99], [174.61, 220, 261.63, 329.63]],
+    melody: [523.25, 493.88, 392, 329.63, 0, 392, 440, 329.63]
+  },
+  drill: {
+    name: "Midnight Drill",
+    volume: 0.27,
+    chordMs: 3200,
+    melodyMs: 740,
+    beatMs: 250,
+    beat: "drill",
+    chordWave: "triangle",
+    melodyWave: "sine",
+    padWave: "triangle",
+    padGain: [0.022, 0.015, 0.01],
+    chordGain: 0.035,
+    melodyGain: 0.055,
+    bass: [46.25, 46.25, 55, 41.2, 61.74, 55, 46.25, 36.71],
+    pad: [92.5, 138.59, 185],
+    chords: [[185, 220, 277.18], [164.81, 207.65, 246.94], [146.83, 185, 220], [138.59, 174.61, 207.65]],
+    melody: [739.99, 659.25, 587.33, 493.88, 440, 493.88, 587.33, 0]
   }
 };
 const accountStorageKey = "plsAccountsV1";
@@ -885,8 +925,37 @@ function teamInitials(name) {
   return name.split(" ").map((part) => part[0]).join("").slice(0, 3).toUpperCase();
 }
 
+const teamLogoArt = {
+  "Oregon Cupids": `<path d="M12 20S4 15.5 4 9.5C4 5 9.5 3.5 12 7c2.5-3.5 8-2 8 2.5C20 15.5 12 20 12 20Z"/><path class="logo-accent" d="m3 21 18-18m-4 0h4v4M3 17v4h4"/>`,
+  "Team Aqua": `<path d="M3 15c2.4-2.8 4.8-2.8 7.2 0s4.8 2.8 7.2 0 4.8-2.8 6.6-.8"/><path class="logo-accent" d="M12 3c3 4 4.5 6.5 4.5 9A4.5 4.5 0 0 1 12 16.5 4.5 4.5 0 0 1 7.5 12C7.5 9.5 9 7 12 3Z"/>`,
+  "Boston Galaxy Elite": `<ellipse cx="12" cy="12" rx="10" ry="4.8" transform="rotate(-25 12 12)"/><path class="logo-accent" d="m12 4 1.5 4.5H18l-3.6 2.7 1.4 4.5-3.8-2.8-3.8 2.8 1.4-4.5L6 8.5h4.5L12 4Z"/>`,
+  "Maryland Bobcats": `<path d="m5 8 2-5 4 3h2l4-3 2 5v7l-4 5H9l-4-5V8Z"/><path class="logo-accent" d="M8 11h2m4 0h2m-6 5 2-1 2 1M7 14l-4-1m14 1 4-1"/>`,
+  "Lawrenceville Tigers": `<path d="M5 5c5-3 9-3 14 0l2 7-4 8H7l-4-8 2-7Z"/><path class="logo-accent" d="m8 5 2 5m6-5-2 5M6 12l4 1m8-1-4 1m-4 4h4"/>`,
+  "Team Ross Elite": `<path d="m12 2 8 4v6c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-4Z"/><path class="logo-accent" d="m7 11 3 3 7-7m-8 9h6"/>`,
+  "Arizona 91": `<circle cx="16" cy="7" r="4"/><path d="M8 21V7m0 6H5c-1.5 0-2-1-2-2V9m5 7h3c1.5 0 2-1 2-2v-3M6 21h4"/><path class="logo-accent" d="M16 1v2m0 8v2m6-6h-2m-8 0h-2m10.3-4.3-1.4 1.4m-5.8 5.8-1.4 1.4"/>`,
+  "Colorado Springs Selects": `<path d="m2 19 6-9 3 4 4-7 7 12H2Z"/><path class="logo-accent" d="m13 10 2-3 2 3m-15 11c4-3 7 2 11-1s6 1 9-1"/>`,
+  "Tennessee Mountaineers": `<path d="m2 21 9-15 4 7 2-3 5 11H2Z"/><path class="logo-accent" d="M13 8a1.4 1.4 0 1 0 0-2.8A1.4 1.4 0 0 0 13 8Zm0 1-2 4 2 2-2 4m2-6 3 2 2-2"/>`,
+  "Vermont Cowboys": `<path d="M4 13c2 2 14 2 16 0l-3-2-2-6-3 2-3-2-2 6-3 2Z"/><path class="logo-accent" d="M2 14c3 5 17 5 20 0M12 8v5"/>`,
+  "Wisconsin Reds": `<path d="M13 2 5 13h6l-1 9 9-13h-6V2Z"/><path class="logo-accent" d="m5 6 3 1M3 10l4 1m9 7 3 1"/>`,
+  "North Carolina Vipers": `<path d="M4 7c5-5 13-3 13 2 0 4-6 3-6 7 0 2 2 3 5 2"/><path class="logo-accent" d="m16 5 5 1-3 4-3-1m4-2 2 3m-3-3 3-1"/>`,
+  "Texas Reindeers": `<path d="M8 9 5 6V2m3 7L3 8M16 9l3-3V2m-3 7 5-1"/><path d="M7 10c0-4 10-4 10 0v5c0 4-2.5 7-5 7s-5-3-5-7v-5Z"/><path class="logo-accent" d="m10 18 2 2 2-2m-5-5h1m4 0h1"/>`,
+  "California Treestumps": `<path d="M6 9h12l2 11H4L6 9Z"/><ellipse cx="12" cy="9" rx="6" ry="3"/><path class="logo-accent" d="M9 9c1-2 5-2 6 0-1 1.5-5 1.5-6 0ZM7 4l2 2m8-2-2 2M12 1v4"/>`,
+  "New York Stars": `<path d="m12 2 2.8 6.3 6.8.6-5.2 4.5 1.6 6.7-6-3.5-6 3.5 1.6-6.7-5.2-4.5 6.8-.6L12 2Z"/><circle class="logo-accent" cx="12" cy="12" r="2.2"/>`,
+  "LA Selects": `<path d="M7 21c3-5 4-10 4-18m0 6L6 5m5 4 5-5m-5 7-6-1m6 1 6-2"/><circle class="logo-accent" cx="18" cy="17" r="4"/><path class="logo-accent" d="m16 17 1.2 1.2L20 15.5"/>`,
+  "Team Illinois": `<path d="M5 17c4-6 10-6 14 0M3 13c5-6 13-6 18 0M8 21c2-4 6-4 8 0"/><path class="logo-accent" d="M12 3v13m-2-10 2-3 2 3"/>`,
+  "Tampa Bay Blue Jays": `<path d="M3 14c5-8 12-10 18-5-4 1-6 3-7 6-3 5-8 5-11-1Z"/><path class="logo-accent" d="m15 10 7 2-7 2m-7-1 3 2m1-6-2-3"/><circle cx="13" cy="9" r="1" fill="currentColor"/>`,
+  "New Hampshire Soil Gatherers": `<path d="m14 3 3 3-8 8-3-3 8-8Zm-8 8-2 9h9l-4-6"/><path class="logo-accent" d="M3 21h18m-6-5c3-2 5-1 6 2m-8 1c2-3 4-3 6-1"/>`,
+  "Seattle Emeralds": `<path d="m7 3-5 7 10 12 10-12-5-7H7Z"/><path class="logo-accent" d="m2 10 10 4 10-4M7 3l5 11 5-11M6 10h12"/>`
+};
+
+function teamLogoSvg(name) {
+  const art = teamLogoArt[name];
+  if (!art) return `<span class="team-logo-fallback">${teamInitials(name)}</span>`;
+  return `<svg class="team-logo" viewBox="0 0 24 24" role="img" aria-label="${name} logo">${art}</svg>`;
+}
+
 function teamBadge(team, extra = "") {
-  return `<span class="team-badge ${extra}" style="--team-color:${team.color || "#20ff9f"}">${teamInitials(team.name)}</span>`;
+  return `<span class="team-badge ${extra}" style="--team-color:${team.color || "#20ff9f"}">${teamLogoSvg(team.name)}</span>`;
 }
 
 function renderTeams() {
@@ -3717,8 +3786,8 @@ function toggleCalmMusic() {
 function scheduleMusicChord() {
   if (!music.on || !music.ctx || !music.master) return;
   const chords = currentSong().chords;
-  const chord = chords[music.step % chords.length];
-  music.step += 1;
+  const chord = chords[music.chordStep % chords.length];
+  music.chordStep += 1;
   const now = music.ctx.currentTime;
   music.master.gain.setTargetAtTime(currentSong().volume, now, 0.35);
   chord.forEach((freq, index) => {
@@ -3790,7 +3859,9 @@ function scheduleMusicMelody() {
   if (!music.on || !music.ctx || !music.master) return;
   const notes = currentSong().melody;
   const now = music.ctx.currentTime;
-  const freq = notes[music.step % notes.length];
+  const freq = notes[music.melodyStep % notes.length];
+  music.melodyStep += 1;
+  if (!freq) return;
   const osc = music.ctx.createOscillator();
   const gain = music.ctx.createGain();
   osc.type = currentSong().melodyWave;
@@ -3809,19 +3880,33 @@ function scheduleMusicBeat() {
   if (!music.on || !music.ctx || !music.master) return;
   const song = currentSong();
   const now = music.ctx.currentTime;
-  const beatIndex = music.step % 8;
+  const beatIndex = music.beatStep % 16;
+  music.beatStep += 1;
   if (song.beat === "spark") {
     playSpark(now, song, beatIndex);
-    music.step += 1;
     return;
   }
-  if (["rap", "phonk", "hardcore", "trap", "stadium", "electro"].includes(song.beat) || beatIndex % 2 === 0) playKick(now, song);
-  if (["rap", "phonk", "trap"].includes(song.beat) && [2, 5].includes(beatIndex)) playSnare(now, song);
-  if (["hardcore", "phonk"].includes(song.beat) && beatIndex % 2 === 1) playHat(now, song);
-  if (song.beat === "hardcore" && beatIndex % 3 === 0) playSnare(now, song);
-  if (song.beat === "soft" && beatIndex % 4 === 0) playHat(now, song, 0.025);
-  playBass(now, song);
-  music.step += 1;
+  const patterns = {
+    soft: { kick: [0, 8], snare: [], hat: [4, 12], bass: [0, 8] },
+    electro: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], bass: [0, 4, 8, 12] },
+    click: { kick: [0, 8], snare: [], hat: [3, 7, 11, 15], bass: [0, 8] },
+    stadium: { kick: [0, 3, 8, 11], snare: [4, 12], hat: [2, 6, 10, 14], bass: [0, 8] },
+    rap: { kick: [0, 3, 7, 10, 14], snare: [4, 12], hat: [2, 6, 8, 11, 15], bass: [0, 3, 7, 10, 14] },
+    phonk: { kick: [0, 2, 5, 8, 11, 14], snare: [4, 12], hat: [1, 3, 6, 9, 13, 15], bass: [0, 5, 8, 11, 14] },
+    hardcore: { kick: [0, 2, 4, 6, 8, 10, 12, 14], snare: [4, 7, 12, 15], hat: [1, 3, 5, 7, 9, 11, 13, 15], bass: [0, 4, 8, 12] },
+    trap: { kick: [0, 3, 7, 10, 15], snare: [4, 12], hat: [2, 6, 8, 9, 10, 14, 15], bass: [0, 3, 7, 10, 15] },
+    lofi: { kick: [0, 7, 10], snare: [4, 12], hat: [2, 6, 10, 14], bass: [0, 7, 10] },
+    drill: { kick: [0, 6, 9, 11, 15], snare: [4, 12], hat: [2, 3, 7, 8, 10, 14, 15], bass: [0, 6, 9, 11, 15] }
+  };
+  const pattern = patterns[song.beat] || patterns.soft;
+  const swing = song.beat === "lofi" && beatIndex % 2 ? 0.07 : 0;
+  const hitTime = now + swing;
+  if (pattern.kick.includes(beatIndex)) playKick(hitTime, song);
+  if (pattern.snare.includes(beatIndex)) playSnare(hitTime, song);
+  if (pattern.hat.includes(beatIndex)) playHat(hitTime, song, song.beat === "lofi" ? 0.022 : 0.045);
+  if (pattern.bass.includes(beatIndex)) playBass(hitTime, song);
+  if (song.beat === "phonk" && [1, 5, 9, 13].includes(beatIndex)) playCowbell(hitTime, beatIndex);
+  if (song.beat === "click" && [0, 4, 8, 12].includes(beatIndex)) playMusicClick(hitTime, beatIndex === 0);
 }
 
 function playSpark(now, song, beatIndex) {
@@ -3860,45 +3945,94 @@ function playKick(now, song) {
 }
 
 function playSnare(now, song) {
-  const osc = music.ctx.createOscillator();
+  const source = music.ctx.createBufferSource();
   const gain = music.ctx.createGain();
-  osc.type = "square";
-  osc.frequency.value = song.beat === "phonk" ? 180 : 220;
-  gain.gain.setValueAtTime(song.beat === "hardcore" ? 0.12 : 0.09, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
-  osc.connect(gain);
+  const filter = music.ctx.createBiquadFilter();
+  source.buffer = getMusicNoiseBuffer();
+  filter.type = "bandpass";
+  filter.frequency.value = song.beat === "lofi" ? 1100 : 1800;
+  filter.Q.value = 0.7;
+  gain.gain.setValueAtTime(song.beat === "hardcore" ? 0.16 : 0.1, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (song.beat === "lofi" ? 0.18 : 0.11));
+  source.connect(filter);
+  filter.connect(gain);
   gain.connect(music.master);
-  osc.start(now);
-  osc.stop(now + 0.12);
-  trackMusicVoice(osc, gain);
+  source.start(now);
+  source.stop(now + 0.2);
+  trackMusicVoice(source, gain);
 }
 
 function playHat(now, song, level = 0.055) {
-  const osc = music.ctx.createOscillator();
+  const source = music.ctx.createBufferSource();
   const gain = music.ctx.createGain();
-  osc.type = "square";
-  osc.frequency.value = song.beat === "hardcore" ? 820 : 620;
+  const filter = music.ctx.createBiquadFilter();
+  source.buffer = getMusicNoiseBuffer();
+  filter.type = "highpass";
+  filter.frequency.value = song.beat === "lofi" ? 4200 : 6500;
   gain.gain.setValueAtTime(level, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
-  osc.connect(gain);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+  source.connect(filter);
+  filter.connect(gain);
   gain.connect(music.master);
-  osc.start(now);
-  osc.stop(now + 0.055);
-  trackMusicVoice(osc, gain);
+  source.start(now);
+  source.stop(now + 0.065);
+  trackMusicVoice(source, gain);
 }
 
 function playBass(now, song) {
-  const freq = song.bass[music.step % song.bass.length];
+  const freq = song.bass[music.bassStep % song.bass.length];
+  music.bassStep += 1;
   const osc = music.ctx.createOscillator();
   const gain = music.ctx.createGain();
-  osc.type = "sawtooth";
+  osc.type = song.beat === "lofi" ? "sine" : "sawtooth";
   osc.frequency.value = freq;
+  if (song.beat === "drill") osc.frequency.exponentialRampToValueAtTime(Math.max(30, freq * 0.72), now + 0.32);
   gain.gain.setValueAtTime(song.beat === "soft" ? 0.035 : 0.12, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.min(0.5, song.beatMs / 1000));
   osc.connect(gain);
   gain.connect(music.master);
   osc.start(now);
   osc.stop(now + Math.min(0.55, song.beatMs / 1000 + 0.05));
+  trackMusicVoice(osc, gain);
+}
+
+function getMusicNoiseBuffer() {
+  if (music.noiseBuffer) return music.noiseBuffer;
+  const length = Math.floor(music.ctx.sampleRate * 0.25);
+  const buffer = music.ctx.createBuffer(1, length, music.ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+  music.noiseBuffer = buffer;
+  return buffer;
+}
+
+function playCowbell(now, beatIndex) {
+  [540, 800].forEach((freq, index) => {
+    const osc = music.ctx.createOscillator();
+    const gain = music.ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq * (beatIndex % 8 === 5 ? 0.88 : 1);
+    gain.gain.setValueAtTime(index === 0 ? 0.045 : 0.025, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+    osc.connect(gain);
+    gain.connect(music.master);
+    osc.start(now);
+    osc.stop(now + 0.15);
+    trackMusicVoice(osc, gain);
+  });
+}
+
+function playMusicClick(now, accent) {
+  const osc = music.ctx.createOscillator();
+  const gain = music.ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = accent ? 1200 : 820;
+  gain.gain.setValueAtTime(accent ? 0.055 : 0.03, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+  osc.connect(gain);
+  gain.connect(music.master);
+  osc.start(now);
+  osc.stop(now + 0.05);
   trackMusicVoice(osc, gain);
 }
 
@@ -3928,7 +4062,7 @@ function currentSong() {
 
 function changeMusicSong(songId) {
   music.song = musicSongs[songId] ? songId : "calm";
-  music.step = 0;
+  resetMusicSteps();
   if (music.on) {
     if (music.timer) window.clearInterval(music.timer);
     if (music.melodyTimer) window.clearInterval(music.melodyTimer);
@@ -3945,6 +4079,13 @@ function changeMusicSong(songId) {
     music.beatTimer = window.setInterval(scheduleMusicBeat, currentSong().beatMs);
   }
   renderMusicButton();
+}
+
+function resetMusicSteps() {
+  music.chordStep = 0;
+  music.melodyStep = 0;
+  music.beatStep = 0;
+  music.bassStep = 0;
 }
 
 function renderMusicButton(label) {
