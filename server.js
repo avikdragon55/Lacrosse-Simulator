@@ -54,7 +54,7 @@ function normalizeModelName(value) {
 
 async function handleInterview(req, res) {
   if (!process.env.OPENAI_API_KEY) {
-    sendJson(res, 503, { error: "AI interviews need OPENAI_API_KEY on the server." });
+    sendJson(res, 503, { error: "Player interviews are using the built-in free engine." });
     return;
   }
 
@@ -206,5 +206,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, () => {
   console.log(`PLS running at http://localhost:${port}`);
-  console.log(process.env.OPENAI_API_KEY ? `AI interviews enabled with ${model}` : "AI interviews disabled: set OPENAI_API_KEY to enable them.");
+  console.log(process.env.OPENAI_API_KEY ? `Enhanced player interviews enabled with ${model}` : "Using built-in free player interview engine.");
 });

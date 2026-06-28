@@ -76,7 +76,7 @@ class PLSHandler(SimpleHTTPRequestHandler):
             return
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            self.send_json(503, {"error": "AI interviews need OPENAI_API_KEY on the server."})
+            self.send_json(503, {"error": "Player interviews are using the built-in free engine."})
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     public_host = "localhost" if HOST in ("127.0.0.1", "0.0.0.0") else HOST
     print(f"PLS running at http://{public_host}:{PORT}")
     if os.environ.get("OPENAI_API_KEY"):
-        print(f"AI interviews enabled with {MODEL}")
+        print(f"Enhanced player interviews enabled with {MODEL}")
     else:
-        print("AI interviews disabled: set OPENAI_API_KEY to enable them.")
+        print("Using built-in free player interview engine.")
     server.serve_forever()

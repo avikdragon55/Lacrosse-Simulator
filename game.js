@@ -279,6 +279,8 @@ function makeInterviewProfile(name, position, rating) {
   const music = ["rap before warmups", "hard rock in the weight room", "phonk when I need energy", "old-school hip hop", "anything fast with a heavy beat", "calmer music after games"];
   const hobbies = ["watching film", "lifting", "playing video games", "shooting after practice", "hanging with teammates", "customizing sticks", "watching college lacrosse"];
   const hometowns = ["Baltimore", "Denver", "Long Island", "Philadelphia", "Boston", "Dallas", "San Diego", "Minneapolis", "Charlotte", "Columbus"];
+  const heroes = ["a two-way midfielder from my hometown", "my first travel coach", "my older cousin", "a goalie who never talked but stopped everything", "the captain from my first serious team"];
+  const nicknames = ["Wheels", "Ice", "Rocket", "Buckets", "Clamp", "Flash", "Tank", "Captain", "Silky"];
   const vibes = rating >= 88
     ? ["confident", "competitive", "spotlight-ready", "locked in"]
     : rating >= 74
@@ -291,6 +293,8 @@ function makeInterviewProfile(name, position, rating) {
     favoriteFood: foods[(hash + 2) % foods.length],
     music: music[(hash + 3) % music.length],
     hobby: hobbies[(hash + 4) % hobbies.length],
+    hero: heroes[(hash + 6) % heroes.length],
+    nickname: nicknames[(hash + 7) % nicknames.length],
     personality: vibes[(hash + 5) % vibes.length],
     motto: rating >= 88 ? "Own the moment." : rating >= 74 ? "Win the next possession." : "Earn every shift."
   };
@@ -2730,26 +2734,24 @@ function renderInterviewPlayers() {
 async function checkAiInterviewStatus() {
   const status = qs("#interview-ai-status");
   if (!status) return;
-  status.textContent = aiInterviewChecked
-    ? aiInterviewEnabled ? "GPT-4o mini player AI: online" : "GPT-4o mini player AI: offline - using local fallback"
-    : "Checking AI...";
+  status.textContent = "Players are ready for questions";
   try {
     const response = await fetch("/api/interview-status");
     const data = await response.json();
     aiInterviewEnabled = !!data.enabled;
     aiInterviewChecked = true;
-    status.textContent = aiInterviewEnabled ? `GPT-4o mini player AI: online (${data.model})` : "GPT-4o mini player AI: offline - start the server with OPENAI_API_KEY";
+    status.textContent = "Players are ready for questions";
   } catch (error) {
     aiInterviewEnabled = false;
     aiInterviewChecked = true;
-    status.textContent = "GPT-4o mini player AI: offline - open through the server with OPENAI_API_KEY";
+    status.textContent = "Players are ready for questions";
   }
 }
 
 function renderAiInterviewStatus() {
   const status = qs("#interview-ai-status");
   if (!status) return;
-  status.textContent = aiInterviewEnabled ? "GPT-4o mini player AI: online" : "GPT-4o mini player AI: offline - using local fallback";
+  status.textContent = "Players are ready for questions";
 }
 
 function backToInterviewPlayers() {
@@ -2770,7 +2772,7 @@ function startPlayerInterview(playerId) {
   player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
   activeInterviewPlayerId = playerId;
   interviewAwaiting = false;
-  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. ${aiInterviewEnabled ? "GPT-4o mini player AI is on, so this is actually me answering." : "GPT-4o mini is offline right now, so I might not be as sharp until the AI server is connected."}` }];
+  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. Ask me whatever you want.` }];
   qs("#interview-title").textContent = `${player.name} Interview`;
   qs("#interview-player-list").classList.add("hidden");
   qs("#interview-chat").classList.remove("hidden");
@@ -2836,9 +2838,6 @@ function renderInterviewLog() {
 async function playerInterviewAnswer(player, question) {
   const aiResult = await fetchAiInterviewAnswer(player, question);
   if (aiResult.answer) return aiResult.answer;
-  if (aiInterviewEnabled && aiResult.error) {
-    return `Real GPT-4o mini is not answering yet: ${aiResult.error}`;
-  }
   return localPlayerInterviewAnswer(player, question);
 }
 
@@ -2889,7 +2888,7 @@ async function fetchAiInterviewAnswer(player, question) {
     const data = await response.json();
     return { answer: data.answer || "", error: data.error || "" };
   } catch (error) {
-    return { answer: "", error: error && error.message ? error.message : "could not reach the AI server" };
+    return { answer: "", error: error && error.message ? error.message : "could not reach the enhanced interview server" };
   }
 }
 
@@ -2902,33 +2901,53 @@ function localPlayerInterviewAnswer(player, question) {
   const statLine = player.position === "Goalie" ? `${player.saves} saves and ${player.wins} wins` : `${player.goals} goals and ${player.assists} assists`;
   const confidence = (player.traits.leadership + player.traits.iq + player.rating) / 3;
   const swagger = player.traits.showboat > 72 ? "I like the spotlight, no lie. " : "";
+  const topTeammate = team.roster.filter((p) => p.id !== player.id).sort((a, b) => b.rating - a.rating)[0];
+  const teamMood = team.wins > team.losses ? "the room feels confident" : team.wins === team.losses ? "the room feels like we are right on the edge" : "the room knows we have to be better";
+  const role = player.position === "Goalie"
+    ? "My job is to settle everyone down and steal possessions when the game gets messy."
+    : player.position === "Defenseman"
+      ? "My job is to make people uncomfortable and win the ugly possessions."
+      : player.position === "Midfielder"
+        ? "My job is to connect both ends, push pace, and make the smart play."
+        : "My job is to pressure the cage and make defenses panic.";
   if (shouldDeclineInterviewQuestion(question)) return `I'm going to pass on that one. I try to keep interviews respectful and focused on the game, the team, and life around the season.`;
+  if (q.includes("name") && (q.includes("nickname") || q.includes("called"))) return `Some of the guys call me ${profile.nickname}. I did not choose it, but it stuck.`;
+  if (q.includes("hero") || q.includes("look up to") || q.includes("inspired")) return `I looked up to ${profile.hero}. That is where a lot of my game started.`;
   if (q.includes("favorite color") || q.includes("favourite color")) return `My favorite color is ${profile.favoriteColor}. If I could pick a custom stick setup, I would work that into it.`;
   if (q.includes("favorite food") || q.includes("favourite food") || q.includes("eat") || q.includes("meal")) return `My go-to meal is ${profile.favoriteFood}. Before games I keep it lighter, but after a win that is what I want.`;
   if (q.includes("music") || q.includes("song")) return `I usually like ${profile.music}. It gets me into the right headspace before a game.`;
   if (q.includes("hobby") || q.includes("outside lacrosse") || q.includes("free time")) return `Outside lacrosse, I am usually into ${profile.hobby}. It keeps me balanced.`;
   if (q.includes("where") && (q.includes("from") || q.includes("hometown"))) return `I'm from ${profile.hometown}. That place is part of how I play.`;
   if (q.includes("personality") || q.includes("what are you like")) return `I would say I am ${profile.personality}. My motto is pretty simple: ${profile.motto}`;
+  if (q.includes("weather") || q.includes("rain") || q.includes("cold") || q.includes("hot")) return `Weather changes the ball and the pace, but everybody has to play in it. I try not to make excuses.`;
   if (q.includes("favorite animal") || q.includes("favourite animal")) return `I don't know, man. I never really picked a favorite animal. What's the next question?`;
   if (q.includes("favorite number") || q.includes("favourite number")) return `Favorite number? I would go with ${Math.max(1, Number(String(player.id).replace(/\D/g, "").slice(-2)) || player.rating % 99)}. It just feels like my kind of number.`;
   if (q.includes("how are you") || q.includes("how do you feel")) return `I'm feeling good. Body is holding up, the season is moving fast, and I am trying to stay locked in every week.`;
   if (q.includes("who are you") || q.includes("tell me about yourself")) return `I'm ${player.name}, ${player.position}, ${player.rating} overall. I see myself as someone who can help ${team.name} win if I keep doing my job.`;
+  if (q.includes("role") || q.includes("job") || q.includes("responsibility")) return role;
+  if (q.includes("injury") || q.includes("hurt") || q.includes("healthy")) return player.injuryWeeks > 0 ? `I'm banged up right now and missing ${player.injuryWeeks} weeks, which is frustrating. I just have to rehab right.` : `I'm healthy right now. At this point in the season, that matters almost as much as anything.`;
   if (q.includes("school") || q.includes("class") || q.includes("homework")) return `Balancing school and lacrosse is real. You learn fast that if you waste time, the day disappears. Discipline matters off the field too.`;
   if (q.includes("friend") || q.includes("family")) return `My family and close friends keep me grounded. When the season gets loud, they remind me I am more than one good game or one bad game.`;
   if (q.includes("scared") || q.includes("fear")) return `I would not say scared, but you respect the moment. The players who act like they never feel anything are usually lying. You just play through it.`;
+  if (q.includes("rival") || q.includes("enemy") || q.includes("hate")) return `I would not call it hate, but there are teams I circle on the schedule. You remember who embarrassed you.`;
   if (q.includes("best player") || q.includes("goat")) return `There are a lot of great players in this league. I am not here to crown anybody. I just want my matchup to know they had a long day against me.`;
+  if (q.includes("best teammate") || q.includes("favorite teammate") || q.includes("teammate you like")) return topTeammate ? `${topTeammate.name} is a guy I trust. When a game gets tight, you notice who still wants the ball.` : `I respect everyone in the room. We are still building that chemistry.`;
   if (q.includes("money") || q.includes("salary")) return `Money is part of the business, but my focus is playing well enough that everything else takes care of itself.`;
   if ((q.includes("do you like") || q.includes("love") || q.includes("enjoy")) && q.includes("lacrosse")) return `Yeah, I love lacrosse. I would not put in the practices, film, travel, and pressure if I did not care about it. The best part is competing with this team.`;
   if (q.includes("why") && q.includes("lacrosse")) return `I play lacrosse because it rewards everything I care about: speed, toughness, skill, and trust. You cannot fake it when the game gets fast.`;
   if (q.includes("favorite") && (q.includes("part") || q.includes("thing")) && q.includes("lacrosse")) return `My favorite part is the momentum swings. One ground ball, one save, one goal, and suddenly the whole sideline feels different.`;
   if (q.includes("pressure") || q.includes("nervous")) return confidence > 74 ? `Pressure is part of it. I actually like it because it tells you the moment matters.` : `I still get nerves, but once the whistle goes, you just read the play and trust your work.`;
   if (q.includes("improve") || q.includes("better") || q.includes("work on")) return `I am working on consistency. For me that means cleaner decisions, better conditioning, and making the simple play before trying to do too much.`;
+  if (q.includes("practice") || q.includes("training") || q.includes("workout")) return `Practice is where you earn trust. I focus on the reps that show up late in games, not just the flashy stuff.`;
+  if (q.includes("fans") || q.includes("crowd")) return `The fans matter. When the building is loud, you feel it on ground balls and defensive stands.`;
+  if (q.includes("captain") || q.includes("leader") || q.includes("leadership")) return confidence > 76 ? `Leadership is about being steady when everyone else is emotional. I want guys to know what they get from me every night.` : `I'm still learning that part. You lead by doing your job first.`;
   if (q.includes("playoff") || q.includes("championship") || q.includes("world")) return `${swagger}The goal is playoffs first, then the trophy. At ${team.wins}-${team.losses}, we know what has to happen.`;
   if (q.includes("trade") || q.includes("rumor")) return `Trades are business, but chemistry matters. Our chemistry is ${team.chemistry}, and you can feel when a locker room trusts each other.`;
-  if (q.includes("team") || q.includes("teammate") || q.includes("locker")) return `This group is close. Fanbase is ${team.fanbase}, chemistry is ${team.chemistry}, and everybody has a role.`;
+  if (q.includes("team") || q.includes("teammate") || q.includes("locker")) return `This group is close. Fanbase is ${team.fanbase}, chemistry is ${team.chemistry}, and ${teamMood}.`;
   if (q.includes("goal") || q.includes("assist") || q.includes("save") || q.includes("stat") || q.includes("playing")) return `Personally, I'm at ${statLine}, and right now I feel ${trend.replace(/[🔥📈📉➖]/g, "").trim()}. I still have another level.`;
   if (q.includes("coach") || q.includes("gm") || q.includes("manager")) return `The GM has a plan. If we keep adding IQ, toughness, and speed, this team can become dangerous.`;
   if (q.includes("bad") || q.includes("lose") || q.includes("struggle")) return confidence > 72 ? `We are not hiding from it. Losses test your leaders, and I want to be one of those guys.` : `It has been frustrating, but nobody is quitting. We need cleaner starts and better possessions.`;
+  if (q.includes("win") || q.includes("record") || q.includes("season")) return `We are ${team.wins}-${team.losses}. That record tells part of the story, but the next game is the only one we can change.`;
   return `I don't know, man. What's the next question?`;
 }
 
