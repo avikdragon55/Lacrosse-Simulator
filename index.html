@@ -48,12 +48,14 @@
       </section>
 
       <section class="layout hidden" id="game">
+        <button id="facility-floating" class="facility-floating" type="button">Back to Facility</button>
         <aside class="sidebar">
           <div class="selected-card">
             <p class="eyebrow">Your Team</p>
             <h2 id="club-name"></h2>
             <div id="club-meta" class="meta-list"></div>
           </div>
+          <button id="open-facility" class="facility-return" type="button">Team Facility</button>
           <nav class="tabs" aria-label="Game sections">
             <button class="tab active" data-tab="draft">Draft</button>
             <button class="tab" data-tab="cuts">Roster Cuts</button>
@@ -364,6 +366,48 @@
         </section>
       </section>
 
+      <div class="facility hidden" id="facility" role="dialog" aria-modal="true" aria-label="Team facility">
+        <div class="facility-3d-host" id="facility-3d" aria-hidden="true"></div>
+        <header class="facility-hud">
+          <div>
+            <span id="facility-team">Team Facility</span>
+            <strong id="facility-location">Front Entrance</strong>
+          </div>
+          <div class="facility-key"><kbd>WASD</kbd><span>Walk</span><kbd>E</kbd><span>Use</span></div>
+        </header>
+        <button id="facility-close" class="facility-close" type="button" aria-label="Return to management screen" title="Return to management screen">&times;</button>
+        <section class="facility-tour" id="facility-tour">
+          <span id="facility-tour-step">WELCOME TO THE CLUB</span>
+          <strong id="facility-tour-title">Your new facility</strong>
+          <p id="facility-tour-copy">Follow your assistant general manager for a tour.</p>
+          <button id="facility-tour-skip" class="secondary" type="button">Skip Tour</button>
+        </section>
+        <button id="facility-interact" class="primary facility-interact hidden" type="button">Open Draft Computer</button>
+        <div class="facility-dpad" aria-label="Walk controls">
+          <button data-facility-move="forward" type="button" aria-label="Walk forward">&#8593;</button>
+          <button data-facility-move="left" type="button" aria-label="Walk left">&#8592;</button>
+          <button data-facility-move="backward" type="button" aria-label="Walk backward">&#8595;</button>
+          <button data-facility-move="right" type="button" aria-label="Walk right">&#8594;</button>
+        </div>
+        <div class="facility-computer hidden" id="facility-computer">
+          <div class="facility-computer-window">
+            <div class="facility-computer-head">
+              <div><span></span><span></span><span></span></div>
+              <strong id="facility-computer-title">GM Computer</strong>
+              <button id="facility-computer-close" type="button" aria-label="Close computer">&times;</button>
+            </div>
+            <div class="facility-apps">
+              <button data-facility-section="draft" type="button"><b>D</b><span>Draft Room</span></button>
+              <button data-facility-section="advice" type="button"><b>G</b><span>Gmail</span></button>
+              <button data-facility-section="news" type="button"><b>N</b><span>News Desk</span></button>
+              <button data-facility-section="league" type="button"><b>S</b><span>Standings</span></button>
+              <button data-facility-section="leaders" type="button"><b>L</b><span>League Leaders</span></button>
+              <button data-facility-section="season" type="button"><b>20</b><span>Season</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="modal account-modal" id="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
         <div class="modal-box account-box">
           <p class="eyebrow">PLS Account</p>
@@ -478,6 +522,7 @@
             <span>General Manager Office</span>
             <strong id="news-office-title">Morning Desk</strong>
           </div>
+          <button id="office-computer" class="primary" type="button">Open Computer</button>
           <button id="open-newspaper" class="primary" type="button">Open Newspaper</button>
           <button id="office-interview" class="secondary" type="button">Press Conference</button>
         </div>
@@ -609,6 +654,7 @@
     <script type="module" src="trade-room-3d.js"></script>
     <script type="module" src="news-interview-3d.js"></script>
     <script type="module" src="draft-stage-3d.js"></script>
+    <script type="module" src="facility-3d.js"></script>
     <script type="module" src="lacrosse-broadcast.js"></script>
   </body>
 </html>

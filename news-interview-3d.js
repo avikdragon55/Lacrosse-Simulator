@@ -30,14 +30,14 @@ function makeRenderer(host) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.48;
   host.appendChild(renderer.domElement);
   return renderer;
 }
 
 function addLights(scene, warm = true) {
-  scene.add(new THREE.HemisphereLight(0xbad6f2, 0x1b1611, 1.45));
-  const key = new THREE.DirectionalLight(warm ? 0xffddb0 : 0xc8dcff, 2.8);
+  scene.add(new THREE.HemisphereLight(0xd9edff, 0x30241b, 2.25));
+  const key = new THREE.DirectionalLight(warm ? 0xffe7c5 : 0xd9e7ff, 4.1);
   key.position.set(-5, 8, 7);
   key.castShadow = true;
   key.shadow.mapSize.set(1536, 1536);
@@ -46,15 +46,15 @@ function addLights(scene, warm = true) {
   key.shadow.camera.top = 10;
   key.shadow.camera.bottom = -10;
   scene.add(key);
-  const fill = new THREE.PointLight(warm ? 0xffc776 : 0x8eb8ff, 28, 14, 1.8);
+  const fill = new THREE.PointLight(warm ? 0xffd59c : 0x9fc5ff, 44, 16, 1.7);
   fill.position.set(4, 4, 1);
   scene.add(fill);
 }
 
 function createOffice() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a1118);
-  scene.fog = new THREE.Fog(0x0a1118, 14, 30);
+  scene.background = new THREE.Color(0x6ea1bb);
+  scene.fog = new THREE.Fog(0x6ea1bb, 20, 42);
   const camera = new THREE.PerspectiveCamera(54, innerWidth / innerHeight, 0.04, 45);
   camera.position.set(0, 1.62, 5.3);
   camera.lookAt(0, 1.15, -1.3);
@@ -64,12 +64,15 @@ function createOffice() {
 
   const floor = addBox(scene, [12, 0.16, 14], 0x58351f, [0, -0.08, -1.2], { roughness: 0.72 });
   floor.receiveShadow = true;
-  addBox(scene, [12, 4.6, 0.22], 0x26323a, [0, 2.3, -7.25]);
-  addBox(scene, [0.22, 4.6, 14], 0x303a40, [-6, 2.3, -1.2]);
-  addBox(scene, [0.22, 4.6, 14], 0x303a40, [6, 2.3, -1.2]);
-  addBox(scene, [12, 0.16, 14], 0x171c21, [0, 4.55, -1.2], { cast: false });
+  addBox(scene, [2.1, 4.6, 0.22], 0x69777f, [-4.95, 2.3, -7.25]);
+  addBox(scene, [2.1, 4.6, 0.22], 0x69777f, [4.95, 2.3, -7.25]);
+  addBox(scene, [7.8, 0.85, 0.22], 0x69777f, [0, 4.18, -7.25]);
+  addBox(scene, [7.8, 1, 0.22], 0x69777f, [0, 0.5, -7.25]);
+  addBox(scene, [0.22, 4.6, 14], 0x58666f, [-6, 2.3, -1.2]);
+  addBox(scene, [0.22, 4.6, 14], 0x58666f, [6, 2.3, -1.2]);
+  addBox(scene, [12, 0.16, 14], 0x354149, [0, 4.55, -1.2], { cast: false });
   buildOfficeWindow(scene);
-  buildOfficeDesk(scene);
+  const computer = buildOfficeDesk(scene);
   buildOfficeDecor(scene);
   const hands = buildFirstPersonHands(camera);
   const newspaper = buildDeskNewspaper(scene);
@@ -87,6 +90,7 @@ function createOffice() {
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
     if (raycaster.intersectObject(newspaper, true).length) window.dispatchEvent(new Event("news-newspaper-open"));
+    else if (raycaster.intersectObject(computer, true).length) window.dispatchEvent(new Event("news-computer-open"));
   });
 
   function animate() {
@@ -133,13 +137,14 @@ function buildOfficeWindow(scene) {
   [-3.9, 0, 3.9].forEach((x) => addBox(scene, [0.14, 2.9, 0.16], 0x11191f, [x, 2.35, -7]));
   addBox(scene, [7.9, 0.14, 0.18], 0x11191f, [0, 1, -7]);
   addBox(scene, [7.9, 0.14, 0.18], 0x11191f, [0, 3.72, -7]);
+  const turf = addBox(scene, [17, 0.12, 15], 0x2f8b55, [0, 0.02, -13.7], { cast: false, roughness: 0.9 });
+  turf.receiveShadow = true;
+  for (let z = -19; z <= -9; z += 2.5) addBox(scene, [15, 0.015, 0.045], 0xffffff, [0, 0.09, z], { cast: false });
+  addBox(scene, [0.045, 0.015, 13], 0xffffff, [0, 0.1, -13.7], { cast: false });
+  [-5.2, 5.2].forEach((x) => addBox(scene, [0.08, 2.2, 0.08], 0xd7464e, [x, 1.1, -16.4], { metalness: 0.45 }));
   for (let i = 0; i < 18; i += 1) {
-    const x = -7 + (i % 9) * 1.75;
-    const z = -10 - Math.floor(i / 9) * 2.3;
-    const h = 0.7 + (i * 5 % 7) * 0.38;
-    const tower = addBox(scene, [1.1, h, 0.9], i % 2 ? 0x172330 : 0x253544, [x, h / 2, z], { cast: false });
-    tower.material.emissive = new THREE.Color(i % 3 ? 0x071019 : 0x2a220f);
-    tower.material.emissiveIntensity = 0.45;
+    const seat = addBox(scene, [0.7, 0.55 + (i % 3) * 0.15, 0.7], i % 2 ? 0x315f96 : 0xd34c5c, [-7.5 + (i % 9) * 1.85, 0.35, -21 - Math.floor(i / 9) * 1.1], { cast: false });
+    seat.rotation.y = Math.PI;
   }
 }
 
@@ -148,16 +153,49 @@ function buildOfficeDesk(scene) {
   addBox(scene, [8.2, 0.24, 2.6], 0, [0, 1.02, 0.1], { material: wood });
   addBox(scene, [0.34, 1.05, 2.25], 0, [-3.55, 0.5, 0.1], { material: wood });
   addBox(scene, [0.34, 1.05, 2.25], 0, [3.55, 0.5, 0.1], { material: wood });
-  const monitor = addBox(scene, [2.2, 1.28, 0.1], 0x101820, [1.3, 1.92, -0.5], { roughness: 0.2, metalness: 0.35 });
+  const monitor = addBox(scene, [2.05, 1.18, 0.1], 0xffffff, [1.3, 1.9, -0.5], { material: makeOfficeComputerMaterial(), roughness: 0.2, metalness: 0.35 });
   monitor.rotation.y = -0.2;
-  monitor.material.emissive = new THREE.Color(0x083b4c);
-  monitor.material.emissiveIntensity = 0.62;
   addBox(scene, [0.09, 0.65, 0.09], 0x687078, [1.3, 1.34, -0.45], { metalness: 0.8 });
   addBox(scene, [1.25, 0.08, 0.48], 0x222b32, [1.3, 1.14, -0.1]);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.42, 20), standard(0x1d627b, 0.35));
   cup.position.set(2.75, 1.34, 0.15);
   cup.castShadow = true;
   scene.add(cup);
+  return monitor;
+}
+
+function makeOfficeComputerMaterial() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 520;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, 900, 520);
+  gradient.addColorStop(0, "#0d5367");
+  gradient.addColorStop(1, "#102632");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 900, 520);
+  ctx.fillStyle = "rgba(255,255,255,.92)";
+  ctx.font = "900 38px system-ui";
+  ctx.fillText("GM WORKSTATION", 45, 65);
+  const apps = [["G", "GMAIL"], ["D", "DRAFT"], ["S", "STANDINGS"], ["N", "NEWS"]];
+  apps.forEach(([letter, label], index) => {
+    const x = 60 + index * 205;
+    ctx.fillStyle = index === 0 ? "#d84d4d" : index === 1 ? "#37b889" : index === 2 ? "#4b83d0" : "#d6a23f";
+    ctx.fillRect(x, 155, 130, 130);
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.font = "900 58px system-ui";
+    ctx.fillText(letter, x + 65, 240);
+    ctx.font = "800 21px system-ui";
+    ctx.fillText(label, x + 65, 325);
+  });
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255,255,255,.7)";
+  ctx.font = "700 24px system-ui";
+  ctx.fillText("CLICK THE SCREEN OR OPEN COMPUTER", 45, 455);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: texture });
 }
 
 function buildDeskNewspaper(scene) {
@@ -168,15 +206,39 @@ function buildDeskNewspaper(scene) {
   const paper = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.035, 1.45), paperMaterial);
   paper.receiveShadow = true;
   group.add(paper);
-  const ink = standard(0x25231f, 0.94);
-  for (let row = 0; row < 5; row += 1) {
-    const line = new THREE.Mesh(new THREE.BoxGeometry(1.72 - (row % 2) * 0.24, 0.012, 0.035), ink);
-    line.position.set(0, 0.03, -0.4 + row * 0.19);
-    group.add(line);
-  }
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(2.08, 1.28), makeNewspaperMaterial());
+  front.rotation.x = -Math.PI / 2;
+  front.position.y = 0.028;
+  group.add(front);
   group.userData.paperMaterial = paperMaterial;
   scene.add(group);
   return group;
+}
+
+function makeNewspaperMaterial() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 560;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#f1ead8";
+  ctx.fillRect(0, 0, 900, 560);
+  ctx.fillStyle = "#1e211f";
+  ctx.textAlign = "center";
+  ctx.font = "900 70px Georgia";
+  ctx.fillText("LACROSSE DAILY", 450, 82);
+  ctx.fillRect(42, 102, 816, 5);
+  ctx.font = "900 42px Georgia";
+  ctx.fillText("FRONT OFFICE MAKES ITS MOVE", 450, 162);
+  ctx.fillStyle = "#466879";
+  ctx.fillRect(45, 195, 360, 210);
+  ctx.fillStyle = "#222";
+  for (let column = 0; column < 2; column += 1) {
+    for (let row = 0; row < 10; row += 1) ctx.fillRect(445 + column * 205, 200 + row * 21, 175 - (row % 3) * 24, 7);
+  }
+  for (let row = 0; row < 5; row += 1) ctx.fillRect(45, 435 + row * 20, 800 - (row % 2) * 90, 7);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: texture });
 }
 
 function buildOfficeDecor(scene) {

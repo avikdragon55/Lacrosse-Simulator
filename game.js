@@ -56,6 +56,7 @@ let tradeRoomOfferIndex = 0;
 let tradeRoomAdviceToken = 0;
 let draftPresentationQueue = [];
 let draftPresentationActive = false;
+let facilityOwnerGoalPending = false;
 let music = {
   ctx: null,
   master: null,
@@ -450,6 +451,11 @@ function createDraftPool(classYear = 1) {
 
 function resetGame() {
   idCounter = 0;
+  document.body.classList.remove("facility-screen-mode");
+  facilityOwnerGoalPending = false;
+  if (window.teamFacility3D) window.teamFacility3D.close();
+  const facility = qs("#facility");
+  if (facility) facility.classList.add("hidden");
   draftPresentationQueue = [];
   draftPresentationActive = false;
   if (window.draftStage3D) window.draftStage3D.close();
@@ -496,6 +502,7 @@ function resetGame() {
     latestToastOffer: null,
     tradeMessage: "",
     tradeRoomVisited: false,
+    facilityTourDone: false,
     ownerGoal: null,
     ownerGoalReviewPending: false,
     fired: false
@@ -672,6 +679,7 @@ function loadAccount(username) {
   renderOwnerAccess();
   renderAll();
   if (isOwnerAccount()) setTab("owner");
+  if (state.selected !== null) window.setTimeout(() => openTeamFacility(false), 80);
   return true;
 }
 
@@ -684,6 +692,7 @@ function normalizeState() {
   state.ownerGoalReviewPending = !!state.ownerGoalReviewPending;
   state.fired = !!state.fired;
   state.tradeRoomVisited = !!state.tradeRoomVisited;
+  state.facilityTourDone = !!state.facilityTourDone;
   if (state.selected !== null && !state.ownerGoal) state.ownerGoal = makeOwnerGoal(state.teams[state.selected]);
   state.rosterCutMode = !!state.rosterCutMode;
   state.keepRosterIds = state.keepRosterIds || [];
@@ -1015,7 +1024,64 @@ function selectTeam(id) {
   qs("#game").scrollIntoView({ behavior: "smooth", block: "start" });
   setTab("draft");
   renderAll();
-  showOwnerGoalPrompt();
+  facilityOwnerGoalPending = true;
+  openTeamFacility(true);
+}
+
+function facilityConfig(firstVisit = false) {
+  const team = state.teams[state.selected];
+  const leaders = Object.values(readLeaderboard()).sort((a, b) =>
+    (b.championships || 0) - (a.championships || 0) || (b.rate || 0) - (a.rate || 0) || (b.yearsPlayed || 0) - (a.yearsPlayed || 0)
+  );
+  return {
+    firstVisit,
+    teamName: team.name,
+    accent: team.color,
+    owner: team.owner,
+    gmName: state.gmName,
+    leaders
+  };
+}
+
+function openTeamFacility(forceTour = false) {
+  if (state.selected === null) return;
+  const facility = qs("#facility");
+  document.body.classList.remove("facility-screen-mode");
+  facility.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  const config = facilityConfig(forceTour || !state.facilityTourDone);
+  const openFacility = () => window.teamFacility3D && window.teamFacility3D.open(config);
+  if (window.teamFacility3D) openFacility();
+  else window.addEventListener("facility-3d-ready", openFacility, { once: true });
+}
+
+function closeTeamFacility() {
+  qs("#facility").classList.add("hidden");
+  if (window.teamFacility3D) window.teamFacility3D.close();
+  document.body.style.overflow = "";
+}
+
+function leaveTeamFacility() {
+  closeTeamFacility();
+  if (facilityOwnerGoalPending) {
+    facilityOwnerGoalPending = false;
+    window.setTimeout(showOwnerGoalPrompt, 250);
+  }
+}
+
+function openFacilitySection(section) {
+  closeTeamFacility();
+  document.body.classList.add("facility-screen-mode");
+  if (section === "newspaper") {
+    openNewsOffice();
+    window.setTimeout(openNewsOfficePaper, 700);
+  } else {
+    setTab(section);
+  }
+  if (facilityOwnerGoalPending) {
+    facilityOwnerGoalPending = false;
+    window.setTimeout(showOwnerGoalPrompt, 350);
+  }
 }
 
 function makeOwnerGoal(team) {
@@ -1252,7 +1318,10 @@ function closeDraftPresentation() {
   document.body.style.overflow = "";
   if (state.myDrafted.length < draftNeeds.length) activateTab("draft");
   else if (state.rosterCutMode) activateTab("cuts");
-  else activateTab("lineup");
+  else {
+    activateTab("lineup");
+    window.setTimeout(() => openTeamFacility(false), 180);
+  }
 }
 
 function advanceToMyPick() {
@@ -2358,7 +2427,8 @@ function continueToNextSeason() {
   state.ownerGoalReviewPending = false;
   setTab("draft");
   renderAll();
-  showOwnerGoalPrompt();
+  facilityOwnerGoalPending = true;
+  openTeamFacility(false);
 }
 
 function rosterContinuity(team) {
@@ -4436,6 +4506,14 @@ qs("#run-lottery").addEventListener("click", () => confirmAction(
 ));
 qs("#draft-stage-skip").addEventListener("click", skipDraftPresentations);
 window.addEventListener("draft-stage-complete", finishDraftPresentation);
+qs("#open-facility").addEventListener("click", () => openTeamFacility(false));
+qs("#facility-floating").addEventListener("click", () => openTeamFacility(false));
+qs("#facility-close").addEventListener("click", leaveTeamFacility);
+window.addEventListener("facility-tour-complete", () => {
+  state.facilityTourDone = true;
+  saveAccountProgress();
+});
+window.addEventListener("facility-open-section", (event) => openFacilitySection(event.detail.section));
 qs("#confirm-cuts").addEventListener("click", () => confirmAction(
   "Confirm Roster",
   "Continue with these 17 players and release everyone else?",
@@ -4486,10 +4564,18 @@ qs("#trade-room-decline").addEventListener("click", declineTradeRoomOffer);
 qs("#trade-room-next").addEventListener("click", nextTradeRoomOffer);
 window.addEventListener("trade-room-seated", finishTradeRoomWalk);
 qs("#news-office-close").addEventListener("click", closeNewsOffice);
+qs("#office-computer").addEventListener("click", () => {
+  closeNewsOffice();
+  setTab("advice");
+});
 qs("#open-newspaper").addEventListener("click", openNewsOfficePaper);
 qs("#newspaper-close").addEventListener("click", closeNewsOfficePaper);
 qs("#office-interview").addEventListener("click", openInterviewModal);
 window.addEventListener("news-newspaper-open", openNewsOfficePaper);
+window.addEventListener("news-computer-open", () => {
+  closeNewsOffice();
+  setTab("advice");
+});
 qs("#toast-close").addEventListener("click", hideTradeToast);
 qs("#toast-view").addEventListener("click", () => {
   hideTradeToast();
