@@ -488,6 +488,7 @@ function resetGame() {
     myResults: [],
     latestToastOffer: null,
     tradeMessage: "",
+    tradeRoomVisited: false,
     ownerGoal: null,
     ownerGoalReviewPending: false,
     fired: false
@@ -675,6 +676,7 @@ function normalizeState() {
   state.ownerGoal = state.ownerGoal || null;
   state.ownerGoalReviewPending = !!state.ownerGoalReviewPending;
   state.fired = !!state.fired;
+  state.tradeRoomVisited = !!state.tradeRoomVisited;
   if (state.selected !== null && !state.ownerGoal) state.ownerGoal = makeOwnerGoal(state.teams[state.selected]);
   state.rosterCutMode = !!state.rosterCutMode;
   state.keepRosterIds = state.keepRosterIds || [];
@@ -1730,7 +1732,10 @@ function openTradeRoom() {
   room.classList.remove("hidden", "room-open");
   scene.classList.add("hidden");
   document.body.style.overflow = "hidden";
-  const config = { accent: state.teams[state.selected] ? state.teams[state.selected].color : "#20ff9f" };
+  const config = {
+    accent: state.teams[state.selected] ? state.teams[state.selected].color : "#20ff9f",
+    skipWalk: !!state.tradeRoomVisited
+  };
   if (window.tradeRoom3D) window.tradeRoom3D.open(config);
   else window.addEventListener("trade-room-3d-ready", () => {
     if (!room.classList.contains("hidden") && window.tradeRoom3D) window.tradeRoom3D.open(config);
@@ -1749,8 +1754,10 @@ function finishTradeRoomWalk() {
   const room = qs("#trade-room");
   if (!room || room.classList.contains("hidden")) return;
   room.classList.add("room-open");
+  state.tradeRoomVisited = true;
   qs("#trade-room-scene").classList.remove("hidden");
   renderTradeRoomDecision();
+  saveAccountProgress();
 }
 
 function enterTradeCenter() {
@@ -2849,8 +2856,61 @@ function addNews(type, title, body, urgent = false) {
   return story;
 }
 
+function openNewsOffice() {
+  if (state.selected === null) return;
+  activateTab("news");
+  const office = qs("#news-office");
+  office.classList.remove("hidden");
+  qs("#newspaper-overlay").classList.add("hidden");
+  document.body.style.overflow = "hidden";
+  renderNewsOfficePaper();
+  const team = state.teams[state.selected];
+  const config = { teamName: team.name, gmName: state.gmName, accent: team.color };
+  if (window.newsOffice3D) window.newsOffice3D.open(config);
+  else window.addEventListener("news-interview-3d-ready", () => {
+    if (!office.classList.contains("hidden") && window.newsOffice3D) window.newsOffice3D.open(config);
+  }, { once: true });
+}
+
+function closeNewsOffice() {
+  qs("#news-office").classList.add("hidden");
+  qs("#newspaper-overlay").classList.add("hidden");
+  if (window.newsOffice3D) window.newsOffice3D.close();
+  document.body.style.overflow = "";
+}
+
+function openNewsOfficePaper() {
+  renderNewsOfficePaper();
+  qs("#newspaper-overlay").classList.remove("hidden");
+}
+
+function closeNewsOfficePaper() {
+  qs("#newspaper-overlay").classList.add("hidden");
+}
+
+function renderNewsOfficePaper() {
+  const team = state.teams[state.selected];
+  if (!team) return;
+  qs("#newspaper-name").textContent = `${team.name} Ledger`;
+  qs("#newspaper-date").textContent = `Season ${state.draftYear} | Week ${Math.min(state.week, 20)}`;
+  qs("#newspaper-record").textContent = `${team.wins}-${team.losses} | ${ordinal(standings().findIndex((entry) => entry.id === team.id) + 1)}`;
+  const stories = state.news || [];
+  const lead = stories[0];
+  qs("#newspaper-lead").innerHTML = lead
+    ? `<span>${lead.type.toUpperCase()} | WEEK ${lead.week || 1}</span><h3>${lead.title}</h3><p>${lead.body}</p>`
+    : `<span>FRONT OFFICE</span><h3>The season is waiting for its first headline</h3><p>Sim games to fill tomorrow's paper with injuries, interviews, results, and league drama.</p>`;
+  qs("#newspaper-stories").innerHTML = stories.slice(lead ? 1 : 0).map((story) => `
+    <article class="newspaper-story ${story.urgent ? "urgent" : ""}">
+      <span>${story.type.toUpperCase()} | WEEK ${story.week || 1}</span>
+      <h4>${story.title}</h4>
+      <p>${story.body}</p>
+    </article>
+  `).join("") || `<article class="newspaper-story"><h4>No additional stories</h4><p>The newsroom is monitoring the league.</p></article>`;
+}
+
 function openInterviewModal() {
   if (state.selected === null) return;
+  closeNewsOffice();
   activeInterviewPlayerId = null;
   interviewMessages = [];
   interviewAwaiting = false;
@@ -2862,12 +2922,25 @@ function openInterviewModal() {
   qs("#interview-question").value = "";
   renderInterviewPlayers();
   qs("#interview-modal").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  const team = state.teams[state.selected];
+  const config = { teamName: team.name, accent: team.color };
+  if (window.pressConference3D) {
+    window.pressConference3D.open(config);
+    window.pressConference3D.setPlayer(null);
+  } else window.addEventListener("news-interview-3d-ready", () => {
+    if (!qs("#interview-modal").classList.contains("hidden") && window.pressConference3D) window.pressConference3D.open(config);
+  }, { once: true });
   checkAiInterviewStatus();
 }
 
 function closeInterviewModal() {
   interviewAwaiting = false;
+  stopPlayerSpeech();
+  if (window.pressConference3D) window.pressConference3D.close();
   qs("#interview-modal").classList.add("hidden");
+  document.body.style.overflow = "";
+  openNewsOffice();
 }
 
 function renderInterviewPlayers() {
@@ -2904,6 +2977,8 @@ function renderAiInterviewStatus() {
 }
 
 function backToInterviewPlayers() {
+  stopPlayerSpeech();
+  if (window.pressConference3D) window.pressConference3D.setPlayer(null);
   activeInterviewPlayerId = null;
   interviewMessages = [];
   interviewAwaiting = false;
@@ -2921,7 +2996,8 @@ function startPlayerInterview(playerId) {
   player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
   activeInterviewPlayerId = playerId;
   interviewAwaiting = false;
-  interviewMessages = [{ from: player.name, text: `What's up. ${player.name} here. You get 5 questions. Ask me whatever you want.` }];
+  const greeting = `What's up. ${player.name} here. You get 5 questions. Ask me whatever you want.`;
+  interviewMessages = [{ from: player.name, text: greeting }];
   qs("#interview-title").textContent = `${player.name} Interview`;
   qs("#interview-player-list").classList.add("hidden");
   qs("#interview-chat").classList.remove("hidden");
@@ -2930,6 +3006,8 @@ function startPlayerInterview(playerId) {
   qs("#interview-question").value = "";
   renderAiInterviewStatus();
   renderInterviewLog();
+  if (window.pressConference3D) window.pressConference3D.setPlayer({ name: player.name, color: state.teams[state.selected].color });
+  speakPlayerAnswer(player, greeting);
   qs("#interview-question").focus();
 }
 
@@ -2956,7 +3034,30 @@ async function sendInterviewQuestion() {
   interviewAwaiting = false;
   addNews("interview", `${player.name} Interview`, `You asked: "${question}" ${player.name} answered: "${answer}"`);
   renderInterviewLog();
+  speakPlayerAnswer(player, answer);
   renderNews();
+  renderNewsOfficePaper();
+}
+
+function stopPlayerSpeech() {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (window.pressConference3D) window.pressConference3D.setTalking(false);
+}
+
+function speakPlayerAnswer(player, answer) {
+  if (!("speechSynthesis" in window) || !answer) return;
+  stopPlayerSpeech();
+  const speech = new SpeechSynthesisUtterance(answer);
+  const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang && voice.lang.startsWith("en"));
+  const seed = [...player.name].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  if (voices.length) speech.voice = voices[seed % voices.length];
+  speech.rate = 0.94 + (seed % 8) * 0.012;
+  speech.pitch = 0.84 + (seed % 6) * 0.045;
+  speech.volume = 1;
+  speech.onstart = () => window.pressConference3D && window.pressConference3D.setTalking(true);
+  speech.onend = () => window.pressConference3D && window.pressConference3D.setTalking(false);
+  speech.onerror = () => window.pressConference3D && window.pressConference3D.setTalking(false);
+  window.speechSynthesis.speak(speech);
 }
 
 function interviewQuestionCount() {
@@ -3172,7 +3273,7 @@ function addPlayerInterview() {
     `"Stats are cool, but I want the bracket."`,
     `"I know people are watching. I like that pressure."`
   ]);
-  addNews("interview", `${player.name} Postgame Text Interview`, `${player.team} star ${player.name} dropped ${player.goals + player.assists} points so far and texted: ${quote}`);
+  addNews("interview", `${player.name} Postgame Interview`, `${player.team} star ${player.name} has ${player.goals + player.assists} points so far and said: ${quote}`);
 }
 
 function addDramaStory() {
@@ -3636,6 +3737,10 @@ function setTab(tab) {
   }
   if (tab === "trades") {
     openTradeRoom();
+    return;
+  }
+  if (tab === "news") {
+    openNewsOffice();
     return;
   }
   activateTab(tab);
@@ -4289,6 +4394,11 @@ qs("#trade-room-accept").addEventListener("click", acceptTradeRoomOffer);
 qs("#trade-room-decline").addEventListener("click", declineTradeRoomOffer);
 qs("#trade-room-next").addEventListener("click", nextTradeRoomOffer);
 window.addEventListener("trade-room-seated", finishTradeRoomWalk);
+qs("#news-office-close").addEventListener("click", closeNewsOffice);
+qs("#open-newspaper").addEventListener("click", openNewsOfficePaper);
+qs("#newspaper-close").addEventListener("click", closeNewsOfficePaper);
+qs("#office-interview").addEventListener("click", openInterviewModal);
+window.addEventListener("news-newspaper-open", openNewsOfficePaper);
 qs("#toast-close").addEventListener("click", hideTradeToast);
 qs("#toast-view").addEventListener("click", () => {
   hideTradeToast();

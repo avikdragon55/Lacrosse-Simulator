@@ -473,6 +473,17 @@ function open(config = {}) {
   sitButton.classList.add("hidden");
   locationLabel.textContent = "Hallway";
   if (config.accent) accentMaterials.forEach((item) => item.color.lerp(new THREE.Color(config.accent), 0.18));
+  if (config.skipWalk) {
+    doorOpen = true;
+    doorPivot.rotation.y = Math.PI * 0.5;
+    camera.position.copy(seatPosition);
+    camera.lookAt(lookTarget);
+    seated = true;
+    sitProgress = 0.99;
+    hand.visible = false;
+    walkUi.classList.add("hidden");
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("trade-room-seated")), 80);
+  }
   clock.start();
 }
 
