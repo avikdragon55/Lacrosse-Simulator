@@ -27,7 +27,7 @@
             <div><strong>1</strong><span>Choose one of 20 teams with shuffled last-season results.</span></div>
             <div><strong>2</strong><span>Run a weighted lottery where worse teams have better odds.</span></div>
             <div><strong>3</strong><span>Draft 5 players with expensive stars and cheap depth players.</span></div>
-            <div><strong>4</strong><span>Sim a 20-game season, handle trades, then play playoffs and Worlds.</span></div>
+            <div><strong>4</strong><span>Sim a 20-game season, handle trades, then compete in the playoffs.</span></div>
           </div>
           <button id="continue-to-teams" class="start-button">Continue to Teams</button>
         </div>
@@ -66,7 +66,6 @@
             <button class="tab" data-tab="news">News</button>
             <button class="tab" data-tab="awards">Awards</button>
             <button class="tab" data-tab="playoffs">Playoffs</button>
-            <button class="tab" data-tab="worlds">Worlds</button>
             <button class="tab" data-tab="leaderboard">Leaderboard</button>
             <button class="tab" data-tab="hof">Hall of Fame</button>
             <button class="tab hidden" id="owner-tab" data-tab="owner">Owner</button>
@@ -302,7 +301,10 @@
                 <p class="eyebrow">Playoffs</p>
                 <h2>Top 8 qualify</h2>
               </div>
-              <button id="run-playoffs" class="primary" disabled>Run Playoffs</button>
+              <div class="button-group">
+                <button id="run-playoffs" class="primary" disabled>Run Playoffs</button>
+                <button id="next-season" class="secondary hidden">Next Season</button>
+              </div>
             </div>
             <div class="panel inner">
               <h3>Bracket</h3>
@@ -320,23 +322,6 @@
             </div>
             <div class="panel inner">
               <div id="awards"></div>
-            </div>
-          </section>
-
-          <section class="tab-view" id="worlds-view">
-            <div class="section-title">
-              <div>
-                <p class="eyebrow">World Lacrosse</p>
-                <h2>Team USA vs the world</h2>
-              </div>
-              <div class="button-group">
-                <button id="run-worlds" class="primary" disabled>Run Worlds</button>
-                <button id="next-season" class="secondary hidden">Continue</button>
-              </div>
-            </div>
-            <div class="panel inner">
-              <h3>Worlds Games</h3>
-              <div id="worlds"></div>
             </div>
           </section>
 
@@ -514,6 +499,23 @@
         </header>
         <div class="lax-possession" id="lax-possession">Opening faceoff</div>
         <div class="lax-field-key"><span></span>Your team | 3A 3M 3D 1G</div>
+        <div class="lax-broadcast-controls">
+          <select id="lax-weather" aria-label="Game weather">
+            <option value="clear">Clear</option>
+            <option value="rain">Rain</option>
+            <option value="snow">Snow</option>
+            <option value="night">Night</option>
+          </select>
+          <button id="lax-camera" type="button">Broadcast</button>
+          <button id="lax-sound" type="button" aria-label="Toggle game sound">Sound On</button>
+          <div class="lax-speed-controls" aria-label="Simulation speed">
+            <button class="active" data-lax-speed="1" type="button">1x</button>
+            <button data-lax-speed="2" type="button">2x</button>
+            <button data-lax-speed="3" type="button">3x</button>
+          </div>
+        </div>
+        <div class="lax-hot-player" id="lax-hot-player"><span>HOT</span><strong>Player spotlight</strong></div>
+        <div class="lax-replay hidden" id="lax-replay">INSTANT REPLAY</div>
         <div class="lax-broadcast-footer">
           <div><span id="lax-week-label">WEEK 1</span><strong id="lax-event-label">Opening faceoff</strong></div>
           <div class="lax-periods"><span id="lax-p1">0-0</span><span id="lax-p2">0-0</span><span id="lax-p3">0-0</span><span id="lax-p4">0-0</span></div>

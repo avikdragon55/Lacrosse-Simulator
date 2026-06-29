@@ -16,7 +16,12 @@ const ui = {
   week: document.querySelector("#lax-week-label"),
   event: document.querySelector("#lax-event-label"),
   periods: [1, 2, 3, 4].map((number) => document.querySelector(`#lax-p${number}`)),
-  key: document.querySelector("#lax-broadcast .lax-field-key")
+  key: document.querySelector("#lax-broadcast .lax-field-key"),
+  weather: document.querySelector("#lax-weather"),
+  camera: document.querySelector("#lax-camera"),
+  sound: document.querySelector("#lax-sound"),
+  hotPlayer: document.querySelector("#lax-hot-player strong"),
+  replay: document.querySelector("#lax-replay")
 };
 
 let renderer;
@@ -35,6 +40,26 @@ let shot = null;
 let cameraTarget = new THREE.Vector3();
 let goalFlash = 0;
 let finishTimer = null;
+let fieldMesh;
+let crowdHeads;
+let crowdBodies;
+let crowdFans = [];
+let crowdPulse = 0;
+let weatherParticles;
+let weatherMode = "clear";
+let venueLights = [];
+let venueBanners = [];
+let cameraMode = 0;
+let simSpeed = 1;
+let soundOn = true;
+let audioContext;
+let ambientSource;
+let replayShot = null;
+let replayPending = false;
+let lastShot = null;
+let replayDelay = 0;
+let replayActive = false;
+const cameraModes = ["Broadcast", "Sideline", "Behind Goal", "Overhead"];
 
 function init() {
   scene = new THREE.Scene();
@@ -55,8 +80,34 @@ function init() {
   buildVenue();
   buildBall();
   buildTeams();
+  buildWeather();
+  bindControls();
   addEventListener("resize", resize);
   animate();
+}
+
+function bindControls() {
+  ui.weather.addEventListener("change", () => setWeather(ui.weather.value));
+  ui.camera.addEventListener("click", () => {
+    cameraMode = (cameraMode + 1) % cameraModes.length;
+    ui.camera.textContent = cameraModes[cameraMode];
+  });
+  ui.sound.addEventListener("click", () => {
+    soundOn = !soundOn;
+    ui.sound.textContent = soundOn ? "Sound On" : "Sound Off";
+    if (!soundOn) stopAmbient();
+    else if (active) startAmbient();
+  });
+  document.querySelectorAll("[data-lax-speed]").forEach((button) => button.addEventListener("click", () => setSpeed(Number(button.dataset.laxSpeed))));
+}
+
+function setSpeed(speed) {
+  simSpeed = [1, 2, 3].includes(speed) ? speed : 1;
+  document.querySelectorAll("[data-lax-speed]").forEach((button) => button.classList.toggle("active", Number(button.dataset.laxSpeed) === simSpeed));
+}
+
+function getSpeed() {
+  return simSpeed;
 }
 
 function buildVenue() {
@@ -75,6 +126,7 @@ function buildVenue() {
     light.position.set(x, 13, z);
     light.target.position.set(0, 0, z * 0.25);
     scene.add(light, light.target);
+    venueLights.push(light);
   });
 
   const turfTexture = createFieldTexture();
@@ -86,6 +138,7 @@ function buildVenue() {
   turf.rotation.x = -Math.PI / 2;
   turf.receiveShadow = true;
   scene.add(turf);
+  fieldMesh = turf;
 
   const apron = new THREE.Mesh(
     new THREE.PlaneGeometry(FIELD.width + 6, FIELD.length + 5),
@@ -98,9 +151,29 @@ function buildVenue() {
   buildGoal(1);
   buildStands();
   buildSideline();
+  buildVenueBranding();
 }
 
-function createFieldTexture() {
+function buildVenueBranding() {
+  [-1, 1].forEach((side) => {
+    const banner = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.6, 1.15),
+      new THREE.MeshStandardMaterial({ color: 0x16362a, emissive: 0x0b1b15, emissiveIntensity: 0.6, roughness: 0.55 })
+    );
+    banner.position.set(side * 6.95, 4.2, 0);
+    banner.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+    scene.add(banner);
+    venueBanners.push(banner);
+  });
+  [-1, 1].forEach((side) => {
+    const goalLight = new THREE.PointLight(0xffffff, 0, 9, 2);
+    goalLight.position.set(0, 2.8, side * FIELD.goalZ);
+    scene.add(goalLight);
+    venueLights.push(goalLight);
+  });
+}
+
+function createFieldTexture(homeName = "PRO LACROSSE", accent = "#ffffff") {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 1800;
@@ -128,6 +201,13 @@ function createFieldTexture() {
   ctx.beginPath();
   ctx.arc(canvas.width / 2, canvas.height / 2, 0.85 * canvas.width / FIELD.width, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, 1.25 * canvas.width / FIELD.width, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#f5f7ef";
+  ctx.lineWidth = 8;
   [-1, 1].forEach((side) => {
     const goalZ = side * FIELD.goalZ;
     ctx.beginPath();
@@ -150,7 +230,7 @@ function createFieldTexture() {
   ctx.fillStyle = "rgba(255,255,255,.68)";
   ctx.font = "900 58px system-ui";
   ctx.textAlign = "center";
-  ctx.fillText("PRO LACROSSE", canvas.width / 2, canvas.height / 2 - 90);
+  ctx.fillText(homeName.toUpperCase(), canvas.width / 2, canvas.height / 2 - 90);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -206,6 +286,9 @@ function buildStands() {
   const count = 430;
   const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshStandardMaterial({ roughness: 0.8 }), count);
   const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.12, 0.22, 4, 6), new THREE.MeshStandardMaterial({ roughness: 0.72 }), count);
+  crowdHeads = heads;
+  crowdBodies = bodies;
+  crowdFans = [];
   const dummy = new THREE.Object3D();
   const shirts = [0x20ff9f, 0xf04f5f, 0x3b8bd8, 0xf0be4f, 0xf2f3f4, 0x693fa3];
   const skins = [0x5f3b2b, 0x936246, 0xc88b65, 0xe4b38c];
@@ -217,6 +300,7 @@ function buildStands() {
         const px = side * (8 + row * 0.92);
         const py = 0.64 + row * 0.4;
         const pz = -14.6 + col * 0.69;
+        crowdFans.push({ x: px, y: py, z: pz, row, index });
         dummy.position.set(px, py + 0.24, pz);
         dummy.updateMatrix();
         heads.setMatrixAt(index, dummy.matrix);
@@ -232,6 +316,31 @@ function buildStands() {
   heads.instanceMatrix.needsUpdate = true;
   bodies.instanceMatrix.needsUpdate = true;
   scene.add(heads, bodies);
+}
+
+function updateCrowdColors() {
+  if (!crowdBodies || !config) return;
+  const palette = [config.home.color, config.home.color, config.away.color, 0xf1f3f4, 0x1d252a];
+  const color = new THREE.Color();
+  crowdFans.forEach((fan) => crowdBodies.setColorAt(fan.index, color.set(palette[(fan.index * 3 + fan.row) % palette.length])));
+  if (crowdBodies.instanceColor) crowdBodies.instanceColor.needsUpdate = true;
+}
+
+function updateCrowd(dt) {
+  if (crowdPulse <= 0 || !crowdHeads || !crowdBodies) return;
+  crowdPulse = Math.max(0, crowdPulse - dt * 1.25);
+  const dummy = new THREE.Object3D();
+  crowdFans.forEach((fan) => {
+    const jump = Math.abs(Math.sin(simTime * 15 + fan.index * 0.7)) * 0.2 * crowdPulse;
+    dummy.position.set(fan.x, fan.y + 0.24 + jump, fan.z);
+    dummy.updateMatrix();
+    crowdHeads.setMatrixAt(fan.index, dummy.matrix);
+    dummy.position.set(fan.x, fan.y + jump, fan.z);
+    dummy.updateMatrix();
+    crowdBodies.setMatrixAt(fan.index, dummy.matrix);
+  });
+  crowdHeads.instanceMatrix.needsUpdate = true;
+  crowdBodies.instanceMatrix.needsUpdate = true;
 }
 
 function buildSideline() {
@@ -254,6 +363,115 @@ function buildBall() {
   ballShadow.rotation.x = -Math.PI / 2;
   ballShadow.position.y = 0.012;
   scene.add(ballShadow);
+}
+
+function buildWeather() {
+  const count = 900;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i += 1) {
+    positions[i * 3] = (Math.random() - 0.5) * 30;
+    positions[i * 3 + 1] = Math.random() * 16;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 38;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  weatherParticles = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xbfe8ff, size: 0.055, transparent: true, opacity: 0.66, depthWrite: false }));
+  weatherParticles.visible = false;
+  scene.add(weatherParticles);
+}
+
+function setWeather(mode) {
+  weatherMode = ["clear", "rain", "snow", "night"].includes(mode) ? mode : "clear";
+  ui.weather.value = weatherMode;
+  weatherParticles.visible = weatherMode === "rain" || weatherMode === "snow";
+  weatherParticles.material.color.set(weatherMode === "snow" ? 0xffffff : 0x9edcff);
+  weatherParticles.material.size = weatherMode === "snow" ? 0.11 : 0.045;
+  weatherParticles.material.opacity = weatherMode === "snow" ? 0.82 : 0.58;
+  scene.background.set(weatherMode === "night" ? 0x010506 : weatherMode === "rain" ? 0x10191a : weatherMode === "snow" ? 0x9ba9aa : 0x07100d);
+  scene.fog.color.copy(scene.background);
+  scene.fog.density = weatherMode === "night" ? 0.038 : weatherMode === "rain" ? 0.035 : weatherMode === "snow" ? 0.028 : 0.026;
+  venueLights.slice(0, 4).forEach((light) => { light.intensity = weatherMode === "night" ? 190 : weatherMode === "rain" ? 135 : 105; });
+  if (fieldMesh) {
+    fieldMesh.material.roughness = weatherMode === "rain" ? 0.52 : 0.93;
+    fieldMesh.material.color.set(weatherMode === "night" ? 0x8bb59e : weatherMode === "snow" ? 0xd5dfd8 : 0xffffff);
+  }
+}
+
+function updateWeather(dt) {
+  if (!weatherParticles.visible) return;
+  const positions = weatherParticles.geometry.attributes.position;
+  const fall = weatherMode === "snow" ? 1.35 : 12;
+  for (let i = 0; i < positions.count; i += 1) {
+    let y = positions.getY(i) - fall * dt;
+    let x = positions.getX(i) + (weatherMode === "snow" ? Math.sin(simTime + i) * dt * 0.18 : -dt * 1.8);
+    if (y < 0) {
+      y = 14 + Math.random() * 4;
+      x = (Math.random() - 0.5) * 30;
+    }
+    positions.setXY(i, x, y);
+  }
+  positions.needsUpdate = true;
+}
+
+function ensureAudio() {
+  if (!soundOn) return null;
+  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === "suspended") audioContext.resume();
+  return audioContext;
+}
+
+function startAmbient() {
+  const context = ensureAudio();
+  if (!context || ambientSource) return;
+  const length = context.sampleRate * 2;
+  const buffer = context.createBuffer(1, length, context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.11;
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  source.loop = true;
+  source.buffer = buffer;
+  filter.type = "lowpass";
+  filter.frequency.value = 780;
+  gain.gain.value = 0.055;
+  source.connect(filter).connect(gain).connect(context.destination);
+  source.start();
+  ambientSource = source;
+}
+
+function stopAmbient() {
+  if (!ambientSource) return;
+  try { ambientSource.stop(); } catch {}
+  ambientSource = null;
+}
+
+function tone(frequency, duration, type = "sine", volume = 0.04, delay = 0) {
+  const context = ensureAudio();
+  if (!context) return;
+  const osc = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime + delay;
+  osc.type = type;
+  osc.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(gain).connect(context.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+}
+
+function eventSound(type) {
+  if (!soundOn) return;
+  if (type === "goal") {
+    tone(185, 0.5, "sawtooth", 0.07);
+    tone(277, 0.45, "square", 0.045, 0.08);
+    tone(415, 0.55, "triangle", 0.04, 0.16);
+  } else if (type === "save") tone(118, 0.12, "square", 0.035);
+  else if (type === "penalty") tone(880, 0.22, "sine", 0.045);
+  else if (type === "hit") tone(72, 0.09, "sine", 0.06);
+  else if (type === "faceoff") tone(620, 0.09, "square", 0.03);
+  else tone(290, 0.06, "triangle", 0.018);
 }
 
 function buildTeams() {
@@ -364,6 +582,41 @@ function setTeamAppearance(teamPlayers, color, selected) {
   });
 }
 
+function setHotPlayers() {
+  players.forEach((player) => {
+    if (!player.userData.hotRing) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 28), new THREE.MeshBasicMaterial({ color: 0xffc74a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.02;
+      player.add(ring);
+      player.userData.hotRing = ring;
+    }
+    player.userData.hotRing.visible = false;
+  });
+  const homeHot = players.find((player) => player.userData.side === "home" && player.userData.index === (config.hotHome?.index ?? 0));
+  const awayHot = players.find((player) => player.userData.side === "away" && player.userData.index === (config.hotAway?.index ?? 0));
+  if (homeHot) homeHot.userData.hotRing.visible = true;
+  if (awayHot) awayHot.userData.hotRing.visible = true;
+  ui.hotPlayer.textContent = config.selectedSide === "home" ? config.hotHome?.name || "Home playmaker" : config.hotAway?.name || "Away playmaker";
+}
+
+function createPanelTexture(text, background) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 220;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 74px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function start(nextConfig) {
   if (!renderer) init();
   config = nextConfig;
@@ -373,12 +626,20 @@ function start(nextConfig) {
   carrierIndex = 1;
   shot = null;
   goalFlash = 0;
+  crowdPulse = 0;
+  replayPending = false;
+  replayShot = null;
+  lastShot = null;
+  cameraMode = 0;
+  ui.camera.textContent = cameraModes[0];
+  setSpeed(1);
   if (finishTimer) clearTimeout(finishTimer);
   overlay.classList.remove("hidden");
   const awayPlayers = players.filter((player) => player.userData.side === "away");
   const homePlayers = players.filter((player) => player.userData.side === "home");
   setTeamAppearance(awayPlayers, config.away.color, config.selectedSide === "away");
   setTeamAppearance(homePlayers, config.home.color, config.selectedSide === "home");
+  setHotPlayers();
   resetFormation(awayPlayers, "away");
   resetFormation(homePlayers, "home");
   ui.awayName.textContent = config.away.name;
@@ -389,12 +650,28 @@ function start(nextConfig) {
   ui.homeScore.textContent = "0";
   ui.quarter.textContent = "Q1";
   ui.clock.textContent = "12:00";
-  ui.week.textContent = `WEEK ${config.week}`;
+  ui.week.textContent = config.label || `WEEK ${config.week}`;
   ui.event.textContent = "Opening faceoff";
   ui.possession.textContent = "Opening faceoff at midfield";
   ui.periods.forEach((period) => { period.textContent = "0-0"; });
   ui.key.querySelector("span").style.background = config.selectedColor;
   ui.key.querySelector("span").style.boxShadow = `0 0 12px ${config.selectedColor}`;
+  ui.key.classList.toggle("hidden", !config.selectedSide);
+  fieldMesh.material.map = createFieldTexture(config.home.name, config.home.color);
+  fieldMesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  fieldMesh.material.needsUpdate = true;
+  venueBanners.forEach((banner, index) => {
+    banner.material.map = createPanelTexture(index ? config.away.name : config.home.name, index ? config.away.color : config.home.color);
+    banner.material.emissive.set(index ? config.away.color : config.home.color);
+    banner.material.needsUpdate = true;
+  });
+  venueLights.slice(-2)[0].color.set(config.away.color);
+  venueLights.slice(-2)[1].color.set(config.home.color);
+  venueLights.slice(-2).forEach((light) => { light.intensity = 1.8; });
+  updateCrowdColors();
+  setWeather(ui.weather.value || "clear");
+  ui.replay.classList.add("hidden");
+  startAmbient();
   clock.start();
 }
 
@@ -412,30 +689,66 @@ function resetFormation(teamPlayers, side) {
   });
 }
 
-function goal(event, live) {
-  if (!active) return;
-  possession = event.team;
-  const sidePlayers = players.filter((player) => player.userData.side === event.team);
+function playEvent(gameEvent, live) {
+  if (!active) return { replay: false };
+  possession = gameEvent.team;
+  const sidePlayers = players.filter((player) => player.userData.side === gameEvent.team);
   carrierIndex = live.index % 6;
   const carrier = sidePlayers[carrierIndex];
-  const targetZ = event.team === "home" ? FIELD.goalZ : -FIELD.goalZ;
-  shot = {
-    start: carrier.position.clone().add(new THREE.Vector3(0.32, 1.18, 0)),
-    end: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.78 + Math.random() * 0.45, targetZ),
-    progress: 0,
-    duration: 0.46
+  const targetZ = gameEvent.team === "home" ? FIELD.goalZ : -FIELD.goalZ;
+  const type = gameEvent.type || "goal";
+  const labels = {
+    faceoff: "Faceoff won cleanly",
+    save: "Goalie save and outlet",
+    turnover: "Forced turnover",
+    penalty: "Flag down - extra-man chance",
+    hit: "Clean body check",
+    clear: "Successful clear",
+    shotWide: "Shot misses wide",
+    pass: "Quick passing sequence"
   };
-  goalFlash = 1;
+  let importantReplay = false;
+  if (type === "goal") {
+    shot = {
+      start: carrier.position.clone().add(new THREE.Vector3(0.32, 1.18, 0)),
+      end: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.78 + Math.random() * 0.45, targetZ),
+      progress: 0,
+      duration: 0.46
+    };
+    lastShot = { start: shot.start.clone(), end: shot.end.clone() };
+    importantReplay = live.index % 6 === 0 || (gameEvent.quarter >= 2 && Math.abs(live.hs - live.as) <= 1);
+    replayPending = importantReplay;
+    replayShot = importantReplay ? { start: shot.start.clone(), end: shot.end.clone() } : null;
+    goalFlash = 1;
+    crowdPulse = 1;
+    ui.event.textContent = `${gameEvent.team === "home" ? config.home.name : config.away.name} scores`;
+    ui.possession.textContent = `${carrierIndex === 5 ? "Transition" : carrierIndex === 4 ? "Outside rip" : "Quick-stick finish"} - GOAL`;
+  } else {
+    if (type === "turnover" || type === "clear") possession = gameEvent.team;
+    if (type === "faceoff") ball.position.set(0, 0.15, 0);
+    if (type === "save" || type === "shotWide") {
+      shot = {
+        start: carrier.position.clone().add(new THREE.Vector3(0.32, 1.18, 0)),
+        end: new THREE.Vector3(type === "shotWide" ? 1.3 : 0.35, type === "shotWide" ? 1.65 : 0.95, targetZ + (gameEvent.team === "home" ? -0.25 : 0.25)),
+        progress: 0,
+        duration: 0.38
+      };
+    }
+    goalFlash = type === "hit" || type === "penalty" ? 0.28 : 0.08;
+    ui.event.textContent = labels[type] || "Live possession";
+    ui.possession.textContent = `${gameEvent.team === "home" ? config.home.name : config.away.name}: ${labels[type] || "settled offense"}`;
+  }
   ui.homeScore.textContent = live.hs;
   ui.awayScore.textContent = live.as;
-  ui.quarter.textContent = `Q${event.quarter + 1}`;
-  const quarterEvents = config.events.filter((item) => item.quarter === event.quarter);
-  const completed = config.events.slice(0, live.index).filter((item) => item.quarter === event.quarter).length;
+  ui.quarter.textContent = `Q${gameEvent.quarter + 1}`;
+  const quarterEvents = config.events.filter((item) => item.quarter === gameEvent.quarter);
+  const completed = config.events.slice(0, live.index).filter((item) => item.quarter === gameEvent.quarter).length;
   const remaining = Math.max(0, Math.round(720 * (1 - completed / Math.max(1, quarterEvents.length))));
   ui.clock.textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-  ui.event.textContent = `${event.team === "home" ? config.home.name : config.away.name} scores`;
-  ui.possession.textContent = `${carrierIndex === 5 ? "Transition" : carrierIndex === 4 ? "Outside rip" : "Quick-stick finish"} - GOAL`;
   live.quarters.forEach((period, index) => { ui.periods[index].textContent = `${period[1]}-${period[0]}`; });
+  ui.hotPlayer.textContent = gameEvent.team === "home" ? config.hotHome?.name || "Home playmaker" : config.hotAway?.name || "Away playmaker";
+  eventSound(type);
+  return { replay: importantReplay };
 }
 
 function finish(done) {
@@ -450,8 +763,9 @@ function finish(done) {
   finishTimer = setTimeout(() => {
     active = false;
     overlay.classList.add("hidden");
+    stopAmbient();
     done();
-  }, 1400);
+  }, 1400 / simSpeed);
 }
 
 function animate() {
@@ -463,11 +777,22 @@ function animate() {
 }
 
 function update(dt) {
-  simTime += dt;
-  updatePlayers(dt);
-  updateBall(dt);
+  const scaledDt = dt * simSpeed;
+  simTime += scaledDt;
+  updatePlayers(scaledDt);
+  if (replayDelay > 0) {
+    replayDelay -= scaledDt;
+    if (replayDelay <= 0 && replayShot) {
+      replayActive = true;
+      ui.replay.classList.remove("hidden");
+      shot = { start: replayShot.start.clone(), end: replayShot.end.clone(), progress: 0, duration: 0.9 };
+    }
+  }
+  updateBall(scaledDt);
   updateCamera(dt);
-  goalFlash = Math.max(0, goalFlash - dt * 4.5);
+  updateWeather(scaledDt);
+  updateCrowd(scaledDt);
+  goalFlash = Math.max(0, goalFlash - scaledDt * 4.5);
   renderer.toneMappingExposure = 1.12 + goalFlash * 0.32;
 }
 
@@ -527,7 +852,17 @@ function updateBall(dt) {
     const point = shot.start.clone().lerp(shot.end, shot.progress);
     point.y += Math.sin(Math.PI * shot.progress) * 1.85;
     ball.position.copy(point);
-    if (shot.progress >= 1) shot = null;
+    if (shot.progress >= 1) {
+      shot = null;
+      if (replayPending) {
+        replayPending = false;
+        replayDelay = 0.16;
+      } else if (replayActive) {
+        replayActive = false;
+        replayShot = null;
+        ui.replay.classList.add("hidden");
+      }
+    }
   } else {
     const sidePlayers = players.filter((player) => player.userData.side === possession);
     const carrier = sidePlayers[Math.min(carrierIndex, 5)] || sidePlayers[0];
@@ -540,10 +875,24 @@ function updateBall(dt) {
 }
 
 function updateCamera(dt) {
-  cameraTarget.lerp(ball.position.clone().setY(0.8), 1 - Math.pow(0.02, dt));
-  const side = Math.sin(simTime * 0.22) > 0 ? 1 : -1;
-  const desired = new THREE.Vector3(12.8 * side, 9.2, cameraTarget.z + 8.7 * (possession === "home" ? -1 : 1));
-  camera.position.lerp(desired, 1 - Math.pow(0.05, dt));
+  const ballFocus = ball.position.clone().setY(0.8);
+  let desired;
+  let focus;
+  if (cameraMode === 1) {
+    desired = new THREE.Vector3(16.5, 5.8, 0);
+    focus = ballFocus;
+  } else if (cameraMode === 2) {
+    desired = new THREE.Vector3(0, 4.5, possession === "home" ? -13.2 : 13.2);
+    focus = ballFocus;
+  } else if (cameraMode === 3) {
+    desired = new THREE.Vector3(0, 23.5, 0.01);
+    focus = new THREE.Vector3(0, 0, 0);
+  } else {
+    desired = new THREE.Vector3(12.8, 10.2, 15.8);
+    focus = new THREE.Vector3(ballFocus.x * 0.22, 0.7, ballFocus.z * 0.28);
+  }
+  cameraTarget.lerp(focus, 1 - Math.pow(0.09, dt));
+  camera.position.lerp(desired, 1 - Math.pow(0.04, dt));
   camera.lookAt(cameraTarget);
 }
 
@@ -555,6 +904,6 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight);
 }
 
-window.lacrosseLiveBroadcast = { start, goal, finish };
+window.lacrosseLiveBroadcast = { start, event: playEvent, goal: playEvent, finish, getSpeed };
 
 init();

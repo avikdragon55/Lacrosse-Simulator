@@ -34,7 +34,6 @@ const draftNeeds = ["Attackman", "Defenseman", "Midfielder", "Goalie", "Choice"]
 const rosterCaps = { Attackman: 5, Midfielder: 5, Defenseman: 5, Goalie: 2 };
 const starterTargets = { Attackman: 3, Midfielder: 3, Defenseman: 3, Goalie: 1 };
 const rosterMinimums = { Attackman: 3, Midfielder: 3, Defenseman: 3, Goalie: 1 };
-const countries = ["Canada", "England", "Australia", "Japan", "Ireland", "Haudenosaunee", "Germany"];
 const headlineProspects = [
   "Alex Powers", "Bob Masonry", "Reddster Kiln", "Leon Wieserman", "Gurp Washel", "Rob Casco",
   "Trey Waters", "Alex Green", "Maxwell Monroe", "Keagan Meyers", "Vadar Holm", "Bjorne Lindstrom",
@@ -1337,28 +1336,13 @@ function simulateWeek() {
   state.liveSim = makeLiveSim(featured, results);
   const homeTeam = state.teams[featured.home];
   const awayTeam = state.teams[featured.away];
-  if (window.lacrosseLiveBroadcast) {
-    window.lacrosseLiveBroadcast.start({
-      week: state.week,
-      events: state.liveSim.events,
-      home: { id: homeTeam.id, name: homeTeam.name, color: homeTeam.color },
-      away: { id: awayTeam.id, name: awayTeam.name, color: awayTeam.color },
-      selectedSide: featured.home === state.selected ? "home" : "away",
-      selectedColor: state.teams[state.selected].color
-    });
-  }
+  startLiveBroadcast(homeTeam, awayTeam, state.liveSim.events, `WEEK ${state.week}`);
   renderAll();
   animateLiveGame();
 }
 
 function makeLiveSim(result, results) {
-  const events = [];
-  result.quarters.forEach((quarter, qIndex) => {
-    const quarterEvents = [];
-    for (let i = 0; i < quarter[0]; i++) quarterEvents.push({ quarter: qIndex, team: "home" });
-    for (let i = 0; i < quarter[1]; i++) quarterEvents.push({ quarter: qIndex, team: "away" });
-    events.push(...shuffle(quarterEvents));
-  });
+  const events = buildLiveEvents(result.quarters);
   return {
     result,
     results,
@@ -1368,6 +1352,51 @@ function makeLiveSim(result, results) {
     hs: 0,
     as: 0
   };
+}
+
+function buildLiveEvents(quarters) {
+  const eventTypes = ["save", "turnover", "hit", "clear", "shotWide", "pass", "penalty"];
+  const events = [];
+  quarters.forEach((quarter, qIndex) => {
+    const quarterEvents = [{ quarter: qIndex, team: qIndex % 2 ? "away" : "home", type: "faceoff" }];
+    for (let i = 0; i < quarter[0]; i++) quarterEvents.push({ quarter: qIndex, team: "home", type: "goal" });
+    for (let i = 0; i < quarter[1]; i++) quarterEvents.push({ quarter: qIndex, team: "away", type: "goal" });
+    const extraEvents = 5 + Math.floor(rand(0, 3));
+    for (let i = 0; i < extraEvents; i++) {
+      quarterEvents.push({ quarter: qIndex, team: Math.random() < 0.5 ? "home" : "away", type: pick(eventTypes) });
+    }
+    const faceoff = quarterEvents.shift();
+    events.push(faceoff, ...shuffle(quarterEvents));
+  });
+  return events;
+}
+
+function broadcastHotPlayer(team) {
+  const roster = starterRoster(team).length ? starterRoster(team) : activeRoster(team);
+  const ranked = [...roster].sort((a, b) => {
+    const aScore = a.position === "Goalie" ? a.saves * 0.2 + a.wins * 3 : a.goals * 2 + a.assists + a.rating * 0.08;
+    const bScore = b.position === "Goalie" ? b.saves * 0.2 + b.wins * 3 : b.goals * 2 + b.assists + b.rating * 0.08;
+    return bScore - aScore;
+  });
+  const player = ranked[0] || team.roster[0];
+  const roleBase = { Attackman: 0, Midfielder: 3, Defenseman: 6, Goalie: 9 };
+  const samePosition = roster.filter((candidate) => candidate.position === player.position).sort((a, b) => b.rating - a.rating);
+  return { name: player.name, index: (roleBase[player.position] || 0) + Math.max(0, samePosition.findIndex((candidate) => candidate.id === player.id)) };
+}
+
+function startLiveBroadcast(homeTeam, awayTeam, events, label) {
+  if (!window.lacrosseLiveBroadcast) return;
+  window.lacrosseLiveBroadcast.start({
+    week: state.week,
+    label,
+    events,
+    home: { id: homeTeam.id, name: homeTeam.name, color: homeTeam.color },
+    away: { id: awayTeam.id, name: awayTeam.name, color: awayTeam.color },
+    hotHome: broadcastHotPlayer(homeTeam),
+    hotAway: broadcastHotPlayer(awayTeam),
+    selectedSide: homeTeam.id === state.selected ? "home" : awayTeam.id === state.selected ? "away" : null,
+    selectedColor: state.teams[state.selected].color
+  });
 }
 
 function animateLiveGame() {
@@ -1380,14 +1409,17 @@ function animateLiveGame() {
     return;
   }
   const event = state.liveSim.events[state.liveSim.index];
-  const side = event.team === "home" ? 0 : 1;
-  state.liveSim.quarters[event.quarter][side] += 1;
-  if (event.team === "home") state.liveSim.hs += 1;
-  else state.liveSim.as += 1;
+  if (event.type === "goal") {
+    const side = event.team === "home" ? 0 : 1;
+    state.liveSim.quarters[event.quarter][side] += 1;
+    if (event.team === "home") state.liveSim.hs += 1;
+    else state.liveSim.as += 1;
+  }
   state.liveSim.index += 1;
-  if (window.lacrosseLiveBroadcast) window.lacrosseLiveBroadcast.goal(event, state.liveSim);
+  const broadcastResult = window.lacrosseLiveBroadcast ? window.lacrosseLiveBroadcast.event(event, state.liveSim) : null;
   renderSeason();
-  setTimeout(animateLiveGame, 700);
+  const speed = window.lacrosseLiveBroadcast ? window.lacrosseLiveBroadcast.getSpeed() : 1;
+  setTimeout(animateLiveGame, (broadcastResult && broadcastResult.replay ? 1850 : 700) / speed);
 }
 
 function finishLiveWeek() {
@@ -1457,7 +1489,7 @@ function evaluateOwnerGoal(final = false) {
   }
   state.ownerGoalReviewPending = true;
   if (!final) {
-    addNews("owner", "Owner Review Pending", `${state.teams[state.selected].owner} will make the final GM decision after Worlds because you missed the ${state.ownerGoal.targetWins}-win goal.`);
+    addNews("owner", "Owner Review Pending", `${state.teams[state.selected].owner} will make the final GM decision after the playoffs because you missed the ${state.ownerGoal.targetWins}-win goal.`);
     return false;
   }
   state.fired = true;
@@ -1472,11 +1504,6 @@ function needsFinalOwnerReview() {
   if (!state.ownerGoal || state.fired) return false;
   const wins = state.teams[state.selected].wins;
   return state.ownerGoalReviewPending || wins < state.ownerGoal.targetWins;
-}
-
-function showWorldsCompleteCelebration() {
-  if (!state.worldsDone || !state.worlds.champion) return;
-  showCelebration("World Champions", state.worlds.champion.name, "won the Worlds gold medal.", needsFinalOwnerReview() ? "owner-review" : "", worldConfettiColors(state.worlds.champion));
 }
 
 function maybeRunAllStarWeekend() {
@@ -1825,6 +1852,8 @@ function runPlayoffs() {
     return;
   }
   state.playoffLive = makeKnockoutLive(liveGame, playoffResult(liveGame.home, liveGame.away));
+  const round = currentTournamentRound(state.playoffs);
+  startLiveBroadcast(liveGame.home, liveGame.away, state.playoffLive.events, round ? `PLAYOFFS | ${round.name.toUpperCase()}` : "PLAYOFFS");
   setTab("playoffs");
   renderAll();
   animatePlayoffGame();
@@ -1861,22 +1890,22 @@ function finishPlayoffGame() {
 function animatePlayoffGame() {
   if (!state.playoffLive) return;
   if (state.playoffLive.index >= state.playoffLive.events.length) {
-    finishPlayoffGame();
+    if (state.playoffLive.finishing) return;
+    state.playoffLive.finishing = true;
+    if (window.lacrosseLiveBroadcast) window.lacrosseLiveBroadcast.finish(finishPlayoffGame);
+    else finishPlayoffGame();
     return;
   }
+  const event = state.playoffLive.events[state.playoffLive.index];
   playLiveEvent(state.playoffLive);
+  const broadcastResult = window.lacrosseLiveBroadcast ? window.lacrosseLiveBroadcast.event(event, state.playoffLive) : null;
   renderPlayoffs();
-  setTimeout(animatePlayoffGame, 230);
+  const speed = window.lacrosseLiveBroadcast ? window.lacrosseLiveBroadcast.getSpeed() : 1;
+  setTimeout(animatePlayoffGame, (broadcastResult && broadcastResult.replay ? 1850 : 700) / speed);
 }
 
 function makeKnockoutLive(game, result) {
-  const events = [];
-  result.quarters.forEach((quarter, qIndex) => {
-    const quarterEvents = [];
-    for (let i = 0; i < quarter[0]; i++) quarterEvents.push({ quarter: qIndex, team: "home" });
-    for (let i = 0; i < quarter[1]; i++) quarterEvents.push({ quarter: qIndex, team: "away" });
-    events.push(...shuffle(quarterEvents));
-  });
+  const events = buildLiveEvents(result.quarters);
   return {
     game,
     result,
@@ -1890,10 +1919,12 @@ function makeKnockoutLive(game, result) {
 
 function playLiveEvent(live) {
   const event = live.events[live.index];
-  const side = event.team === "home" ? 0 : 1;
-  live.quarters[event.quarter][side] += 1;
-  if (event.team === "home") live.hs += 1;
-  else live.as += 1;
+  if (event.type === "goal") {
+    const side = event.team === "home" ? 0 : 1;
+    live.quarters[event.quarter][side] += 1;
+    if (event.team === "home") live.hs += 1;
+    else live.as += 1;
+  }
   live.index += 1;
 }
 
@@ -1966,169 +1997,8 @@ function teamAwardCard(title, team) {
   `;
 }
 
-function makeTeamUSARoster() {
-  const score = (player) => {
-    const production = player.position === "Goalie"
-      ? player.saves * 0.08 + player.wins * 3
-      : player.goals * 2 + player.assists;
-    return production + player.rating * 1.4 + (player.traits ? player.traits.leadership * 0.2 : 0);
-  };
-  return leaders().sort((a, b) => score(b) - score(a)).slice(0, 12);
-}
-
-function makeWorldField() {
-  const roster = makeTeamUSARoster();
-  const usaRating = roster.reduce((sum, player) => sum + player.rating, 0) / Math.max(1, roster.length);
-  const field = [{ name: "Team USA", rating: usaRating }, ...countries.map((name) => ({ name, rating: rand(75, 92) }))];
-  return { usaRoster: roster, field: field.slice(0, 8) };
-}
-
-function worldGameResult(a, b) {
-  const edge = (a.rating - b.rating) * 0.75 + rand(-20, 20);
-  let aScore = Math.max(6, Math.round(rand(8, 16) + edge / 12));
-  let bScore = Math.max(6, Math.round(rand(8, 16) - edge / 12));
-  if (aScore === bScore) edge >= 0 ? aScore++ : bScore++;
-  const quarters = splitScoreIntoQuarters(aScore, bScore);
-  return {
-    home: a,
-    away: b,
-    quarters,
-    homeScore: aScore,
-    awayScore: bScore,
-    winner: aScore > bScore ? a : b
-  };
-}
-
-function initializeWorlds() {
-  if (!state.playoffsDone || state.worlds) return;
-  const worldSetup = makeWorldField();
-  const ranked = [...worldSetup.field].sort((a, b) => (b.rating + rand(-5, 5)) - (a.rating + rand(-5, 5)));
-  const seeded = ranked.map((team, index) => ({ team, seed: index + 1 }));
-  state.worlds = {
-    usaRoster: worldSetup.usaRoster,
-    bracket: [{
-      name: "World Quarterfinals",
-      games: [
-        worldGame(seeded[0], seeded[7]),
-        worldGame(seeded[3], seeded[4]),
-        worldGame(seeded[1], seeded[6]),
-        worldGame(seeded[2], seeded[5])
-      ]
-    }],
-    roundIndex: 0,
-    champion: null
-  };
-}
-
-function worldGame(homeEntry, awayEntry) {
-  return {
-    home: homeEntry.team,
-    away: awayEntry.team,
-    homeSeed: homeEntry.seed,
-    awaySeed: awayEntry.seed,
-    played: false,
-    quarters: [[0, 0], [0, 0], [0, 0], [0, 0]],
-    homeScore: 0,
-    awayScore: 0,
-    winner: null
-  };
-}
-
-function nextWorldGame() {
-  const round = state.worlds && state.worlds.bracket[state.worlds.roundIndex];
-  return round ? round.games.find((game) => !game.played) : null;
-}
-
-function nextTeamUSAGame() {
-  const round = currentTournamentRound(state.worlds);
-  return round ? round.games.find((game) => !game.played && (game.home.name === "Team USA" || game.away.name === "Team USA")) : null;
-}
-
-function completeWorldGame(game, result) {
-  Object.assign(game, {
-    played: true,
-    quarters: result.quarters,
-    homeScore: result.homeScore,
-    awayScore: result.awayScore,
-    winner: result.winner.name
-  });
-}
-
-function advanceWorldRound() {
-  const current = state.worlds.bracket[state.worlds.roundIndex];
-  if (!current || current.games.some((game) => !game.played)) return;
-  const winners = current.games.map((game) => ({
-    team: game.winner === game.home.name ? game.home : game.away,
-    seed: game.winner === game.home.name ? game.homeSeed : game.awaySeed
-  }));
-  if (winners.length === 1) {
-    state.worlds.champion = winners[0].team;
-    state.worldsDone = true;
-    return;
-  }
-  const roundNames = ["World Quarterfinals", "World Semifinals", "Gold Medal Game"];
-  state.worlds.roundIndex += 1;
-  state.worlds.bracket.push({
-    name: roundNames[state.worlds.roundIndex],
-    games: winners.length === 4
-      ? [worldGame(winners[0], winners[1]), worldGame(winners[2], winners[3])]
-      : [worldGame(winners[0], winners[1])]
-  });
-}
-
-function runWorldsStage() {
-  if (state.fired || !state.playoffsDone || state.worldsDone || state.worldsLive) return;
-  initializeWorlds();
-  const liveGame = nextTeamUSAGame();
-  if (!liveGame) {
-    simRestOfWorldsRound();
-    return;
-  }
-  state.worldsLive = makeKnockoutLive(liveGame, worldGameResult(liveGame.home, liveGame.away));
-  renderAll();
-  animateWorldsGame();
-}
-
-function simRestOfWorldsRound() {
-  const round = currentTournamentRound(state.worlds);
-  if (!round) return;
-  round.games.filter((game) => !game.played).forEach((game) => completeWorldGame(game, worldGameResult(game.home, game.away)));
-  advanceWorldRound();
-  renderAll();
-  if (state.worldsDone && state.worlds.champion) {
-    showWorldsCompleteCelebration();
-  }
-}
-
-function animateWorldsGame() {
-  if (!state.worldsLive) return;
-  if (state.worldsLive.index >= state.worldsLive.events.length) {
-    finishWorldsGame();
-    return;
-  }
-  playLiveEvent(state.worldsLive);
-  renderWorlds();
-  setTimeout(animateWorldsGame, 230);
-}
-
-function finishWorldsGame() {
-  const live = state.worldsLive;
-  state.worldsLive = null;
-  completeWorldGame(live.game, {
-    quarters: live.quarters,
-    homeScore: live.hs,
-    awayScore: live.as,
-    winner: live.hs > live.as ? live.game.home : live.game.away
-  });
-  advanceWorldRound();
-  renderAll();
-  if (state.worldsDone && state.worlds.champion) {
-    showWorldsCompleteCelebration();
-  }
-}
-
 function continueToNextSeason() {
-  if (state.fired || !state.worldsDone) return;
+  if (state.fired || !state.playoffsDone) return;
   if (needsFinalOwnerReview()) {
     evaluateOwnerGoal(true);
     return;
@@ -2308,7 +2178,6 @@ function renderAll() {
   renderNews();
   renderAwards();
   renderPlayoffs();
-  renderWorlds();
   renderLeaderboard();
   renderHallOfFame();
   saveAccountProgress();
@@ -2403,27 +2272,6 @@ function playerStatCard(label, player, teamName) {
   `;
 }
 
-function worldTeamClass(team, extra = "") {
-  return `${extra}${team && team.name === "Team USA" ? " my-team" : ""}`.trim();
-}
-
-function teamUSARosterHtml(roster) {
-  if (!roster || !roster.length) return "";
-  return `
-    <div class="worlds-roster">
-      <h3>Team USA Roster</h3>
-      <div class="roster">
-        ${roster.map((player, index) => `
-          <div class="row">
-            <span>${index + 1}. ${player.name}<br><span class="muted">${player.position} | ${player.goals}G ${player.assists}A | ${player.team}</span></span>
-            <strong>${player.rating}</strong>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `;
-}
-
 function tabAllowed(tab) {
   if (state.rosterCutMode && !rosterNeedsCuts(state.teams[state.selected])) state.rosterCutMode = false;
   if (tab === "owner") return isOwnerAccount();
@@ -2434,7 +2282,6 @@ function tabAllowed(tab) {
   if (["season", "league", "leaders", "trades"].indexOf(tab) >= 0) return state.myDrafted.length >= draftNeeds.length && !rosterNeedsCuts(state.teams[state.selected]) && rosterCanPlay(state.teams[state.selected].roster);
   if (tab === "awards") return state.seasonDone;
   if (tab === "playoffs") return state.seasonDone && !state.fired;
-  if (tab === "worlds") return state.playoffsDone && !state.fired;
   return true;
 }
 
@@ -2552,7 +2399,6 @@ function lockedTabReason(tab) {
   }
   if (tab === "awards") return "Awards are locked until the regular season ends.";
   if (tab === "playoffs") return "Playoffs are locked until the regular season ends.";
-  if (tab === "worlds") return "Worlds is locked until playoffs are complete.";
   if (tab === "owner") return "Owner tools are locked unless you are logged in as Avik Hardy.";
   return "This section is locked right now.";
 }
@@ -2693,7 +2539,7 @@ function liveScoreBox(live) {
     quarters: live.quarters,
     hs: live.hs,
     as: live.as
-  }) + `<div class="live-note">Live simulation: ${live.index}/${live.events.length} scoring plays</div>`;
+  }) + `<div class="live-note">Live simulation: ${live.index}/${live.events.length} game events</div>`;
 }
 
 function scoreBox(g) {
@@ -3522,10 +3368,13 @@ function renderAwards() {
 
 function renderPlayoffs() {
   const playoffButton = qs("#run-playoffs");
+  const nextSeasonButton = qs("#next-season");
   if (state.seasonDone) initializePlayoffs();
   const nextGame = state.playoffs && !state.playoffsDone ? nextMyPlayoffGame() : null;
   const remainingGame = state.playoffs && !state.playoffsDone ? nextPlayableGame(state.playoffs) : null;
   playoffButton.disabled = !state.seasonDone || state.playoffsDone || !!state.playoffLive;
+  nextSeasonButton.classList.toggle("hidden", !state.playoffsDone);
+  nextSeasonButton.textContent = state.playoffsDone && needsFinalOwnerReview() ? "Owner Review" : "Next Season";
   if (state.playoffsDone) {
     playoffButton.textContent = "Playoffs Complete";
   } else if (state.playoffLive) {
@@ -3579,74 +3428,7 @@ function knockoutLiveBox(live) {
     <div class="score-line mini-live"><strong>Team</strong><span>Q1</span><span>Q2</span><span>Q3</span><span>Q4</span><span>F</span></div>
     <div class="${teamRowClass(live.game.away.id, "score-line mini-live")}"><strong>${seedLabel(live.game.awaySeed)} ${live.game.away.name}</strong>${awayQuarters.map((x) => `<span>${x}</span>`).join("")}<span>${live.as}</span></div>
     <div class="${teamRowClass(live.game.home.id, "score-line mini-live")}"><strong>${seedLabel(live.game.homeSeed)} ${live.game.home.name}</strong>${homeQuarters.map((x) => `<span>${x}</span>`).join("")}<span>${live.hs}</span></div>
-    <div class="live-note">Live playoff game: ${live.index}/${live.events.length} scoring plays</div>
-  `;
-}
-
-function renderWorlds() {
-  const worldsButton = qs("#run-worlds");
-  const nextSeasonButton = qs("#next-season");
-  const previewRoster = state.worlds ? state.worlds.usaRoster : state.playoffsDone ? makeTeamUSARoster() : [];
-  if (state.playoffsDone) initializeWorlds();
-  const nextGame = state.worlds && !state.worldsDone ? nextTeamUSAGame() : null;
-  const remainingGame = state.worlds && !state.worldsDone ? nextWorldGame() : null;
-  worldsButton.disabled = !state.playoffsDone || state.worldsDone || !!state.worldsLive;
-  nextSeasonButton.classList.toggle("hidden", !state.worldsDone);
-  nextSeasonButton.textContent = state.worldsDone && needsFinalOwnerReview() ? "Owner Review" : "Continue";
-  if (state.worldsDone) {
-    worldsButton.textContent = "Worlds Complete";
-  } else if (state.worldsLive) {
-    worldsButton.textContent = "Worlds Game Live";
-  } else if (nextGame) {
-    worldsButton.textContent = `Sim ${seedLabel(nextGame.homeSeed)} vs ${seedLabel(nextGame.awaySeed)}`;
-  } else if (remainingGame) {
-    worldsButton.textContent = `Sim rest of ${formatRoundNumber(state.worlds)}`;
-  } else if (state.worlds) {
-    worldsButton.textContent = "Next Worlds Round Ready";
-  } else {
-    worldsButton.textContent = "Sim First Worlds Game";
-  }
-  if (!state.playoffsDone) {
-    qs("#worlds").innerHTML = `<div class="muted">Run the playoffs first.</div>`;
-    return;
-  }
-  if (!state.worlds) {
-    qs("#worlds").innerHTML = teamUSARosterHtml(previewRoster) + `<div class="muted">Worlds is ready after playoffs. Team USA is selected from the best season performers.</div>`;
-    return;
-  }
-  qs("#worlds").innerHTML = `
-    ${teamUSARosterHtml(previewRoster)}
-    ${state.worldsLive ? `<div class="scoreboard worlds-live">${worldsLiveBox(state.worldsLive)}</div>` : ""}
-    <div class="bracket">
-      ${state.worlds.bracket.map((round) => `
-        <div class="bracket-round">
-          <strong>${round.name}</strong>
-          ${round.games.map((game) => `
-            <div class="bracket-game">
-              <div class="${worldTeamClass(game.home, "bracket-team")}">
-                <span>${seedLabel(game.homeSeed)} ${game.home.name}</span><strong>${game.played ? game.homeScore : "-"}</strong>
-              </div>
-              <div class="${worldTeamClass(game.away, "bracket-team")}">
-                <span>${seedLabel(game.awaySeed)} ${game.away.name}</span><strong>${game.played ? game.awayScore : "-"}</strong>
-              </div>
-              <span class="muted">${game.played ? `Winner: ${game.winner}` : "Elimination matchup set"}</span>
-            </div>
-          `).join("")}
-        </div>
-      `).join("")}
-    </div>
-    ${state.worlds.champion ? `<div class="${worldTeamClass(state.worlds.champion, "row champion-row")}"><span>World Champion</span><strong>${state.worlds.champion.name}</strong></div>` : `<div class="muted">Next Worlds stage is ready.</div>`}
-  `;
-}
-
-function worldsLiveBox(live) {
-  const homeQuarters = live.quarters.map((q) => q[0]);
-  const awayQuarters = live.quarters.map((q) => q[1]);
-  return `
-    <div class="score-line mini-live"><strong>Team</strong><span>Q1</span><span>Q2</span><span>Q3</span><span>Q4</span><span>F</span></div>
-    <div class="${worldTeamClass(live.game.away, "score-line mini-live")}"><strong>${seedLabel(live.game.awaySeed)} ${live.game.away.name}</strong>${awayQuarters.map((x) => `<span>${x}</span>`).join("")}<span>${live.as}</span></div>
-    <div class="${worldTeamClass(live.game.home, "score-line mini-live")}"><strong>${seedLabel(live.game.homeSeed)} ${live.game.home.name}</strong>${homeQuarters.map((x) => `<span>${x}</span>`).join("")}<span>${live.hs}</span></div>
-    <div class="live-note">Live Worlds game: ${live.index}/${live.events.length} scoring plays</div>
+    <div class="live-note">Live playoff game: ${live.index}/${live.events.length} game events</div>
   `;
 }
 
@@ -4184,11 +3966,6 @@ function teamConfettiColors(team) {
   return [team && team.color ? team.color : "#20ff9f", "#ffffff", "#00e5ff", "#ff2bd6"];
 }
 
-function worldConfettiColors(team) {
-  if (team && team.name === "Team USA") return ["#c73562", "#ffffff", "#296fba", "#00e5ff"];
-  return ["#20ff9f", "#ffffff", "#d99a29", "#00e5ff"];
-}
-
 function showCelebration(kicker, title, message, tone = "", confettiColors = null) {
   if (kicker.includes("Champions")) playUiSound("champion");
   qs("#celebration-kicker").textContent = kicker;
@@ -4281,7 +4058,6 @@ qs("#simulate-season").addEventListener("click", () => confirmAction(
 ));
 qs("#run-playoffs").addEventListener("click", runPlayoffs);
 qs("#continue-playoffs").addEventListener("click", () => setTab("playoffs"));
-qs("#run-worlds").addEventListener("click", runWorldsStage);
 qs("#next-season").addEventListener("click", () => confirmAction(
   "Next Season",
   "Continue to the next season and keep your roster?",
