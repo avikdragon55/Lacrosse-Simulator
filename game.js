@@ -1387,7 +1387,7 @@ function animateLiveGame() {
   state.liveSim.index += 1;
   if (window.lacrosseLiveBroadcast) window.lacrosseLiveBroadcast.goal(event, state.liveSim);
   renderSeason();
-  setTimeout(animateLiveGame, 230);
+  setTimeout(animateLiveGame, 700);
 }
 
 function finishLiveWeek() {

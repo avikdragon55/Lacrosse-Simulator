@@ -2,7 +2,7 @@ import * as THREE from "./vendor/three.module.js";
 
 const overlay = document.querySelector("#lax-broadcast");
 const host = document.querySelector("#lax-broadcast-scene");
-const FIELD = { width: 12, length: 22, goalZ: 8.55 };
+const FIELD = { width: 14, length: 26, goalZ: 10.25 };
 const ui = {
   awayTeam: document.querySelector("#lax-away-team"),
   homeTeam: document.querySelector("#lax-home-team"),
@@ -41,7 +41,7 @@ function init() {
   scene.background = new THREE.Color(0x07100d);
   scene.fog = new THREE.FogExp2(0x07100d, 0.026);
   camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 0.05, 90);
-  camera.position.set(10.5, 9.5, 13.5);
+  camera.position.set(12.5, 10.5, 16.5);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
   renderer.setSize(innerWidth, innerHeight);
@@ -199,7 +199,7 @@ function buildStands() {
   for (const side of [-1, 1]) {
     for (let row = 0; row < 5; row += 1) {
       const step = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.42, FIELD.length + 5), concrete);
-      step.position.set(side * (7.15 + row * 0.92), 0.2 + row * 0.4, 0);
+      step.position.set(side * (8.25 + row * 0.92), 0.2 + row * 0.4, 0);
       scene.add(step);
     }
   }
@@ -214,9 +214,9 @@ function buildStands() {
   for (const side of [-1, 1]) {
     for (let row = 0; row < 5; row += 1) {
       for (let col = 0; col < 43 && index < count; col += 1) {
-        const px = side * (6.9 + row * 0.92);
+        const px = side * (8 + row * 0.92);
         const py = 0.64 + row * 0.4;
-        const pz = -12.6 + col * 0.59;
+        const pz = -14.6 + col * 0.69;
         dummy.position.set(px, py + 0.24, pz);
         dummy.updateMatrix();
         heads.setMatrixAt(index, dummy.matrix);
@@ -238,11 +238,11 @@ function buildSideline() {
   const benchMaterial = new THREE.MeshStandardMaterial({ color: 0x30383e, metalness: 0.48, roughness: 0.38 });
   [-4.3, 4.3].forEach((z) => {
     const bench = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 3.2), benchMaterial);
-    bench.position.set(6.55, 0.42, z);
+    bench.position.set(7.65, 0.42, z);
     scene.add(bench);
   });
   const table = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.68, 3.4), new THREE.MeshStandardMaterial({ color: 0x10171a, roughness: 0.6 }));
-  table.position.set(-6.5, 0.34, 0);
+  table.position.set(-7.6, 0.34, 0);
   scene.add(table);
 }
 
@@ -259,10 +259,12 @@ function buildBall() {
 function buildTeams() {
   players = [];
   for (const side of ["away", "home"]) {
-    for (let index = 0; index < 7; index += 1) {
-      const group = createAthlete(index === 6);
+    for (let index = 0; index < 10; index += 1) {
+      const group = createAthlete(index === 9);
       group.userData.side = side;
       group.userData.index = index;
+      group.userData.role = index < 3 ? "Attack" : index < 6 ? "Midfield" : index < 9 ? "Defense" : "Goalie";
+      group.scale.setScalar(0.86);
       scene.add(group);
       players.push(group);
     }
@@ -397,8 +399,13 @@ function start(nextConfig) {
 }
 
 function resetFormation(teamPlayers, side) {
-  const direction = side === "home" ? -1 : 1;
-  const positions = [[0, direction * 8.8], [-2.6, direction * 5.5], [2.6, direction * 5.2], [-4.1, direction * 2.2], [4.1, direction * 2], [0, direction * 0.8], [0, direction * 8.05]];
+  const attackDirection = side === "home" ? 1 : -1;
+  const positions = [
+    [-3.1, attackDirection * 7.1], [0, attackDirection * 6.1], [3.1, attackDirection * 7.1],
+    [-3.8, attackDirection * 2.2], [0, attackDirection * 1.1], [3.8, attackDirection * 2.2],
+    [-3.2, -attackDirection * 4.6], [0, -attackDirection * 5.4], [3.2, -attackDirection * 4.6],
+    [0, -attackDirection * 9.65]
+  ];
   teamPlayers.forEach((player, index) => {
     player.position.set(positions[index][0], 0, positions[index][1]);
     player.userData.velocity.set(0, 0, 0);
@@ -409,14 +416,14 @@ function goal(event, live) {
   if (!active) return;
   possession = event.team;
   const sidePlayers = players.filter((player) => player.userData.side === event.team);
-  carrierIndex = 1 + (live.index % 5);
+  carrierIndex = live.index % 6;
   const carrier = sidePlayers[carrierIndex];
-  const targetZ = event.team === "home" ? -FIELD.goalZ : FIELD.goalZ;
+  const targetZ = event.team === "home" ? FIELD.goalZ : -FIELD.goalZ;
   shot = {
     start: carrier.position.clone().add(new THREE.Vector3(0.32, 1.18, 0)),
     end: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.78 + Math.random() * 0.45, targetZ),
     progress: 0,
-    duration: 0.17
+    duration: 0.46
   };
   goalFlash = 1;
   ui.homeScore.textContent = live.hs;
@@ -444,7 +451,7 @@ function finish(done) {
     active = false;
     overlay.classList.add("hidden");
     done();
-  }, 950);
+  }, 1400);
 }
 
 function animate() {
@@ -465,26 +472,34 @@ function update(dt) {
 }
 
 function updatePlayers(dt) {
-  const offenseDirection = possession === "home" ? -1 : 1;
   const phase = simTime * 5.8;
   players.forEach((player) => {
     const side = player.userData.side;
     const index = player.userData.index;
     const isOffense = side === possession;
-    const teamDirection = side === "home" ? -1 : 1;
+    const attackDirection = side === "home" ? 1 : -1;
+    const role = player.userData.role;
     let targetX;
     let targetZ;
     if (player.userData.goalie) {
       targetX = Math.sin(phase * 0.45) * 0.3;
-      targetZ = teamDirection * (FIELD.goalZ - 0.48);
+      targetZ = -attackDirection * (FIELD.goalZ - 0.52);
     } else if (isOffense) {
-      const lanes = [-3.9, -2.2, 0, 2.2, 3.9, 0.8];
-      targetX = lanes[index - 1] + Math.sin(phase + index) * 0.55;
-      targetZ = offenseDirection * (6.8 - ((index + Math.floor(phase)) % 4) * 1.55) + Math.sin(phase * 0.72 + index) * 1.1;
+      if (role === "Attack") {
+        targetX = [-3.4, 0, 3.4][index] + Math.sin(phase + index) * 0.5;
+        targetZ = attackDirection * (7.2 + (index % 2) * 1.2) + Math.sin(phase * 0.72 + index) * 0.8;
+      } else if (role === "Midfield") {
+        targetX = [-4.1, 0, 4.1][index - 3] + Math.sin(phase + index) * 0.65;
+        targetZ = attackDirection * (2.2 + ((index + Math.floor(phase)) % 3) * 1.35) + Math.sin(phase * 0.8 + index) * 1.2;
+      } else {
+        targetX = [-3.2, 0, 3.2][index - 6] + Math.sin(phase + index) * 0.35;
+        targetZ = -attackDirection * (3.7 + (index % 2) * 1.1);
+      }
     } else {
-      const mark = players.find((candidate) => candidate.userData.side === possession && candidate.userData.index === Math.min(index, 5));
+      const markIndex = role === "Defense" ? index - 6 : role === "Midfield" ? index : index + 6;
+      const mark = players.find((candidate) => candidate.userData.side === possession && candidate.userData.index === markIndex);
       targetX = (mark ? mark.position.x : 0) + Math.sin(index) * 0.35;
-      targetZ = (mark ? mark.position.z : 0) - offenseDirection * 0.75;
+      targetZ = (mark ? mark.position.z : 0) - (possession === "home" ? -1 : 1) * 0.78;
     }
     const target = new THREE.Vector3(targetX, 0, targetZ);
     const delta = target.sub(player.position);
@@ -515,7 +530,7 @@ function updateBall(dt) {
     if (shot.progress >= 1) shot = null;
   } else {
     const sidePlayers = players.filter((player) => player.userData.side === possession);
-    const carrier = sidePlayers[Math.min(carrierIndex, 5)] || sidePlayers[1];
+    const carrier = sidePlayers[Math.min(carrierIndex, 5)] || sidePlayers[0];
     const stickPoint = new THREE.Vector3(0.38, 1.35, -0.24).applyQuaternion(carrier.quaternion).add(carrier.position);
     ball.position.lerp(stickPoint, 0.62);
   }
@@ -527,7 +542,7 @@ function updateBall(dt) {
 function updateCamera(dt) {
   cameraTarget.lerp(ball.position.clone().setY(0.8), 1 - Math.pow(0.02, dt));
   const side = Math.sin(simTime * 0.22) > 0 ? 1 : -1;
-  const desired = new THREE.Vector3(10.8 * side, 8.2, cameraTarget.z + 7.4 * (possession === "home" ? 1 : -1));
+  const desired = new THREE.Vector3(12.8 * side, 9.2, cameraTarget.z + 8.7 * (possession === "home" ? -1 : 1));
   camera.position.lerp(desired, 1 - Math.pow(0.05, dt));
   camera.lookAt(cameraTarget);
 }
