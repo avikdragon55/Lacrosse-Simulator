@@ -77,6 +77,8 @@ function createOffice() {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let active = false;
+  let paperMotion = 0;
+  let paperTarget = 0;
 
   officeHost.addEventListener("click", (event) => {
     if (!active) return;
@@ -93,7 +95,16 @@ function createOffice() {
     if (active) {
       hands.left.rotation.z = -0.08 + Math.sin(t * 1.1) * 0.01;
       hands.right.rotation.z = 0.08 - Math.sin(t * 1.1) * 0.01;
-      newspaper.position.y = 1.115 + Math.sin(t * 1.4) * 0.002;
+      paperMotion = THREE.MathUtils.lerp(paperMotion, paperTarget, 0.09);
+      newspaper.position.set(
+        THREE.MathUtils.lerp(-1.65, 0, paperMotion),
+        THREE.MathUtils.lerp(1.115, 1.65, paperMotion) + Math.sin(t * 1.4) * 0.002,
+        THREE.MathUtils.lerp(0.35, 3.55, paperMotion)
+      );
+      newspaper.rotation.x = THREE.MathUtils.lerp(0, Math.PI * 0.46, paperMotion);
+      newspaper.rotation.y = THREE.MathUtils.lerp(0.08, 0, paperMotion);
+      hands.left.position.y = -0.55 + paperMotion * 0.23;
+      hands.right.position.y = -0.55 + paperMotion * 0.23;
     }
     renderer.render(scene, camera);
     clock.getDelta();
@@ -104,11 +115,15 @@ function createOffice() {
     camera,
     open(config = {}) {
       active = true;
-      if (config.accent) newspaper.material.color.set(config.accent).lerp(new THREE.Color(0xe8dfc7), 0.88);
+      if (config.accent) newspaper.userData.paperMaterial.color.set(config.accent).lerp(new THREE.Color(0xe8dfc7), 0.88);
       camera.position.set(0, 1.62, 5.3);
       camera.lookAt(0, 1.15, -1.3);
+      paperMotion = 0;
+      paperTarget = 0;
     },
-    close() { active = false; }
+    close() { active = false; },
+    pickUpPaper() { paperTarget = 1; },
+    lowerPaper() { paperTarget = 0; }
   };
 }
 
@@ -146,14 +161,22 @@ function buildOfficeDesk(scene) {
 }
 
 function buildDeskNewspaper(scene) {
-  const paper = addBox(scene, [2.25, 0.035, 1.45], 0xe8dfc7, [-1.65, 1.115, 0.35], { roughness: 0.9, cast: false });
-  paper.rotation.y = 0.08;
+  const group = new THREE.Group();
+  group.position.set(-1.65, 1.115, 0.35);
+  group.rotation.y = 0.08;
+  const paperMaterial = standard(0xe8dfc7, 0.9);
+  const paper = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.035, 1.45), paperMaterial);
+  paper.receiveShadow = true;
+  group.add(paper);
   const ink = standard(0x25231f, 0.94);
   for (let row = 0; row < 5; row += 1) {
-    const line = addBox(scene, [1.72 - (row % 2) * 0.24, 0.012, 0.035], 0, [-1.65, 1.145, -0.05 + row * 0.19], { material: ink, cast: false });
-    line.rotation.y = 0.08;
+    const line = new THREE.Mesh(new THREE.BoxGeometry(1.72 - (row % 2) * 0.24, 0.012, 0.035), ink);
+    line.position.set(0, 0.03, -0.4 + row * 0.19);
+    group.add(line);
   }
-  return paper;
+  group.userData.paperMaterial = paperMaterial;
+  scene.add(group);
+  return group;
 }
 
 function buildOfficeDecor(scene) {
@@ -380,7 +403,9 @@ window.newsOffice3D = {
     resize();
     office.open(config);
   },
-  close() { if (office) office.close(); }
+  close() { if (office) office.close(); },
+  pickUpPaper() { if (office) office.pickUpPaper(); },
+  lowerPaper() { if (office) office.lowerPaper(); }
 };
 
 window.pressConference3D = {

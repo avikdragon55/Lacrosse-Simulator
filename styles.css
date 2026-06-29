@@ -2573,6 +2573,103 @@ button:disabled {
   line-height: 1;
 }
 
+.draft-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  overflow: hidden;
+  color: #fff;
+  background: #05080d;
+}
+
+.draft-stage.hidden {
+  display: none;
+}
+
+.draft-stage-3d-host {
+  position: absolute;
+  inset: 0;
+}
+
+.draft-stage-3d-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.draft-stage-banner {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) minmax(210px, 1.25fr) auto;
+  gap: 10px 18px;
+  align-items: center;
+  width: min(950px, calc(100vw - 40px));
+  min-height: 76px;
+  padding: 12px 18px;
+  background: rgba(4, 9, 15, 0.91);
+  border-top: 3px solid var(--draft-team-color, var(--accent));
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+}
+
+.draft-stage-banner span,
+.draft-stage-banner em {
+  color: #b9c8d8;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.draft-stage-banner strong {
+  color: var(--draft-team-color, var(--accent));
+  font-size: 19px;
+}
+
+.draft-stage-banner b {
+  font-size: 27px;
+  line-height: 1;
+}
+
+.draft-camera-label {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 3;
+  padding: 8px 11px;
+  color: #fff;
+  background: rgba(4, 9, 15, 0.72);
+  border-left: 3px solid #df3448;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.draft-camera-label::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  background: #f3384e;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #f3384e;
+  content: "";
+}
+
+.draft-stage-skip {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 4;
+  color: white;
+  background: rgba(4, 9, 15, 0.8);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
 .live-note {
   padding: 8px 10px;
   color: #0d3f37;
@@ -3347,5 +3444,42 @@ body.dark-mode button.primary {
 
   .press-conference .interview-input-row {
     grid-template-columns: 1fr;
+  }
+
+  .draft-stage-banner {
+    bottom: 8px;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+    width: calc(100vw - 16px);
+    min-height: 92px;
+    padding: 10px 12px;
+  }
+
+  .draft-stage-banner b {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: 22px;
+  }
+
+  .draft-stage-banner strong {
+    font-size: 15px;
+  }
+
+  .draft-stage-banner span,
+  .draft-stage-banner em {
+    font-size: 10px;
+  }
+
+  .draft-camera-label {
+    top: 9px;
+    left: 9px;
+  }
+
+  .draft-stage-skip {
+    top: 8px;
+    right: 8px;
+    min-height: 38px;
+    padding: 7px 9px;
+    font-size: 11px;
   }
 }

@@ -494,6 +494,17 @@
           </div>
         </div>
       </div>
+      <div class="draft-stage hidden" id="draft-stage" role="dialog" aria-modal="true" aria-labelledby="draft-stage-player">
+        <div class="draft-stage-3d-host" id="draft-stage-3d" aria-hidden="true"></div>
+        <div class="draft-stage-banner">
+          <span id="draft-stage-pick">1st Overall Pick</span>
+          <strong id="draft-stage-team">Team</strong>
+          <b id="draft-stage-player">Player</b>
+          <em id="draft-stage-detail">Position | Overall</em>
+        </div>
+        <div class="draft-camera-label" id="draft-camera-label">Main Stage</div>
+        <button id="draft-stage-skip" class="secondary draft-stage-skip" type="button" aria-label="Skip remaining draft presentations" title="Skip remaining draft presentations">Skip</button>
+      </div>
       <div class="modal press-conference hidden" id="interview-modal" role="dialog" aria-modal="true" aria-labelledby="interview-title">
         <div class="press-conference-3d-host" id="press-conference-3d" aria-hidden="true"></div>
         <div class="modal-box interview-modal-box">
@@ -597,6 +608,7 @@
     <script src="game.js"></script>
     <script type="module" src="trade-room-3d.js"></script>
     <script type="module" src="news-interview-3d.js"></script>
+    <script type="module" src="draft-stage-3d.js"></script>
     <script type="module" src="lacrosse-broadcast.js"></script>
   </body>
 </html>

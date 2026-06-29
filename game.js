@@ -54,6 +54,8 @@ let aiInterviewEnabled = false;
 let aiInterviewChecked = false;
 let tradeRoomOfferIndex = 0;
 let tradeRoomAdviceToken = 0;
+let draftPresentationQueue = [];
+let draftPresentationActive = false;
 let music = {
   ctx: null,
   master: null,
@@ -448,6 +450,11 @@ function createDraftPool(classYear = 1) {
 
 function resetGame() {
   idCounter = 0;
+  draftPresentationQueue = [];
+  draftPresentationActive = false;
+  if (window.draftStage3D) window.draftStage3D.close();
+  const draftStage = qs("#draft-stage");
+  if (draftStage) draftStage.classList.add("hidden");
   state = {
     teams: createTeams(),
     gmName: currentAccount && readAccounts()[currentAccount] ? readAccounts()[currentAccount].gmName : "",
@@ -1157,18 +1164,95 @@ function completePick(teamId, player) {
     playUiSound("draft");
   }
   if (!state.draftPicks) state.draftPicks = [];
-  state.draftPicks.push({
+  const pickRecord = {
     pick: pickNumber,
     teamId,
     team: team.name,
+    teamColor: team.color,
     player: player.name,
     position: player.position,
     rating: player.rating,
     salary: player.salary,
     mine: teamId === state.selected
-  });
+  };
+  state.draftPicks.push(pickRecord);
+  queueDraftPresentation(pickRecord);
   state.pickLog.unshift(`${team.name} drafted ${player.name}, ${player.position}, ${player.rating} OVR, ${money(player.salary)}.`);
   state.currentPick += 1;
+}
+
+function queueDraftPresentation(pickRecord) {
+  draftPresentationQueue.push(pickRecord);
+  window.setTimeout(runNextDraftPresentation, 0);
+}
+
+function runNextDraftPresentation() {
+  if (draftPresentationActive || !draftPresentationQueue.length) return;
+  const pickRecord = draftPresentationQueue[0];
+  draftPresentationActive = true;
+  const stage = qs("#draft-stage");
+  stage.classList.remove("hidden");
+  stage.style.setProperty("--draft-team-color", pickRecord.teamColor || "#16e0c2");
+  document.body.style.overflow = "hidden";
+  qs("#draft-stage-pick").textContent = `${ordinal(pickRecord.pick)} Overall Pick`;
+  qs("#draft-stage-team").textContent = pickRecord.team;
+  qs("#draft-stage-player").textContent = pickRecord.player;
+  qs("#draft-stage-detail").textContent = `${pickRecord.position} | ${pickRecord.rating} OVR`;
+
+  const config = {
+    pick: pickRecord.pick,
+    teamName: pickRecord.team,
+    teamColor: pickRecord.teamColor,
+    playerName: pickRecord.player,
+    position: pickRecord.position,
+    rating: pickRecord.rating
+  };
+  const playCeremony = () => window.draftStage3D && window.draftStage3D.play(config);
+  if (window.draftStage3D) playCeremony();
+  else window.addEventListener("draft-stage-3d-ready", playCeremony, { once: true });
+  speakDraftAnnouncement(pickRecord);
+}
+
+function speakDraftAnnouncement(pickRecord) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const announcement = new SpeechSynthesisUtterance(
+    `With the ${ordinal(pickRecord.pick)} pick in the Professional Lacrosse Draft, the ${pickRecord.team} select ${pickRecord.player}, ${pickRecord.position}.`
+  );
+  const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang && voice.lang.startsWith("en"));
+  const maleNames = ["Alex", "Daniel", "Fred", "Aaron", "Arthur", "Bruce", "Eddy", "Gordon", "Lee", "Ralph", "Reed", "Rishi", "Rocko", "Tom"];
+  announcement.voice = voices.find((voice) => maleNames.some((name) => voice.name.includes(name))) || voices[0] || null;
+  announcement.rate = 0.88;
+  announcement.pitch = 0.76;
+  announcement.volume = 1;
+  window.speechSynthesis.speak(announcement);
+}
+
+function finishDraftPresentation() {
+  if (!draftPresentationActive) return;
+  draftPresentationQueue.shift();
+  draftPresentationActive = false;
+  if (draftPresentationQueue.length) {
+    window.setTimeout(runNextDraftPresentation, 280);
+    return;
+  }
+  closeDraftPresentation();
+}
+
+function skipDraftPresentations() {
+  draftPresentationQueue = [];
+  draftPresentationActive = false;
+  closeDraftPresentation();
+}
+
+function closeDraftPresentation() {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (window.draftStage3D) window.draftStage3D.close();
+  qs("#draft-stage").classList.add("hidden");
+  document.body.style.overflow = "";
+  if (state.myDrafted.length < draftNeeds.length) activateTab("draft");
+  else if (state.rosterCutMode) activateTab("cuts");
+  else activateTab("lineup");
 }
 
 function advanceToMyPick() {
@@ -2881,11 +2965,13 @@ function closeNewsOffice() {
 
 function openNewsOfficePaper() {
   renderNewsOfficePaper();
-  qs("#newspaper-overlay").classList.remove("hidden");
+  if (window.newsOffice3D) window.newsOffice3D.pickUpPaper();
+  window.setTimeout(() => qs("#newspaper-overlay").classList.remove("hidden"), 520);
 }
 
 function closeNewsOfficePaper() {
   qs("#newspaper-overlay").classList.add("hidden");
+  if (window.newsOffice3D) window.newsOffice3D.lowerPaper();
 }
 
 function renderNewsOfficePaper() {
@@ -3049,10 +3135,13 @@ function speakPlayerAnswer(player, answer) {
   stopPlayerSpeech();
   const speech = new SpeechSynthesisUtterance(answer);
   const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang && voice.lang.startsWith("en"));
+  const maleNames = ["Alex", "Daniel", "Fred", "Aaron", "Arthur", "Bruce", "Eddy", "Gordon", "Lee", "Ralph", "Reed", "Rishi", "Rocko", "Tom"];
+  const maleVoices = voices.filter((voice) => maleNames.some((name) => voice.name.includes(name)));
+  if (!maleVoices.length) return;
   const seed = [...player.name].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  if (voices.length) speech.voice = voices[seed % voices.length];
-  speech.rate = 0.94 + (seed % 8) * 0.012;
-  speech.pitch = 0.84 + (seed % 6) * 0.045;
+  speech.voice = maleVoices[seed % maleVoices.length];
+  speech.rate = 0.91 + (seed % 5) * 0.012;
+  speech.pitch = 0.77 + (seed % 4) * 0.035;
   speech.volume = 1;
   speech.onstart = () => window.pressConference3D && window.pressConference3D.setTalking(true);
   speech.onend = () => window.pressConference3D && window.pressConference3D.setTalking(false);
@@ -4345,6 +4434,8 @@ qs("#run-lottery").addEventListener("click", () => confirmAction(
   "Continue and reveal the full weighted draft lottery order?",
   runLotteryMachine
 ));
+qs("#draft-stage-skip").addEventListener("click", skipDraftPresentations);
+window.addEventListener("draft-stage-complete", finishDraftPresentation);
 qs("#confirm-cuts").addEventListener("click", () => confirmAction(
   "Confirm Roster",
   "Continue with these 17 players and release everyone else?",
