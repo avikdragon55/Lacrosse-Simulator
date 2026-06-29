@@ -75,18 +75,18 @@ class PLSHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        if self.path != "/api/interview":
+        if self.path not in ("/api/interview", "/api/trade-advice"):
             self.send_error(404)
             return
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            self.send_json(503, {"error": "Player interviews are using the built-in free engine."})
+            self.send_json(503, {"error": "Enhanced front-office responses are unavailable."})
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(min(length, 12000)).decode("utf-8")
             payload = json.loads(body or "{}")
-            response = self.openai_interview(api_key, payload)
+            response = self.openai_trade_advice(api_key, payload) if self.path == "/api/trade-advice" else self.openai_interview(api_key, payload)
             self.send_json(200, response)
         except urllib.error.HTTPError as error:
             try:
@@ -161,6 +161,58 @@ class PLSHandler(SimpleHTTPRequestHandler):
         if isinstance(last_error, urllib.error.HTTPError):
             raise last_error
         raise RuntimeError("AI interview failed.")
+
+    def openai_trade_advice(self, api_key, payload):
+        context = {
+            "owner": safe_text(payload.get("owner"), 80),
+            "myTeam": safe_text(payload.get("myTeam"), 80),
+            "otherTeam": safe_text(payload.get("otherTeam"), 80),
+            "outgoing": payload.get("outgoing") or {},
+            "incoming": payload.get("incoming") or {},
+            "includesPick": bool(payload.get("includesPick")),
+            "budget": payload.get("budget"),
+            "chemistry": payload.get("chemistry"),
+            "fanbase": payload.get("fanbase"),
+            "record": safe_text(payload.get("record"), 30),
+        }
+        request_body = {
+            "model": MODEL,
+            "max_output_tokens": 260,
+            "input": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You write dialogue for two fictional front-office executives in a lacrosse management game. "
+                        "Analyze only the supplied trade facts. The team owner must argue clearly to ACCEPT the trade, "
+                        "focusing on upside, star power, winning, fans, or the draft pick. The cap director must argue "
+                        "clearly to DECLINE the same trade, focusing on age, salary, depth, chemistry, position risk, or "
+                        "current production. Their opinions must be opposite but both intelligent and specific to the named "
+                        "players and stats. Each response is 2 concise sentences, natural spoken dialogue, with a little "
+                        "personality. Never mention AI. Return only valid JSON with exactly two string keys: owner and director."
+                    ),
+                },
+                {"role": "user", "content": "Trade context:\n" + json.dumps(context, indent=2)},
+            ],
+        }
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/responses",
+            data=json.dumps(request_body).encode("utf-8"),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as res:
+            data = json.loads(res.read().decode("utf-8"))
+        output = extract_output_text(data).strip()
+        start = output.find("{")
+        end = output.rfind("}")
+        if start < 0 or end <= start:
+            raise RuntimeError("The trade room returned an invalid response.")
+        advice = json.loads(output[start:end + 1])
+        owner = safe_text(advice.get("owner"), 500)
+        director = safe_text(advice.get("director"), 500)
+        if not owner or not director:
+            raise RuntimeError("The trade room returned incomplete advice.")
+        return {"owner": owner, "director": director, "model": MODEL}
 
     def ask_openai_model(self, api_key, model, context):
         request_body = {

@@ -52,6 +52,10 @@ let interviewMessages = [];
 let interviewAwaiting = false;
 let aiInterviewEnabled = false;
 let aiInterviewChecked = false;
+let tradeRoomOfferIndex = 0;
+let tradeRoomAdviceToken = 0;
+let tradeRoomDoorTimer = null;
+let tradeRoomAudioContext = null;
 let music = {
   ctx: null,
   master: null,
@@ -1715,6 +1719,217 @@ function declineOffer(index) {
   state.tradeMessage = `Declined: ${describeOffer(offer)}`;
   state.offers.splice(index, 1);
   renderAll();
+}
+
+function openTradeRoom() {
+  cleanupTradeOffers();
+  activateTab("trades");
+  const room = qs("#trade-room");
+  const scene = qs("#trade-room-scene");
+  if (!room || !scene) return;
+  if (tradeRoomDoorTimer) window.clearTimeout(tradeRoomDoorTimer);
+  tradeRoomOfferIndex = 0;
+  tradeRoomAdviceToken += 1;
+  room.classList.remove("hidden", "opening", "room-open");
+  scene.classList.add("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function openTradeRoomDoor() {
+  const room = qs("#trade-room");
+  if (!room || room.classList.contains("opening") || room.classList.contains("room-open")) return;
+  playTradeDoorSound();
+  room.classList.add("opening");
+  tradeRoomDoorTimer = window.setTimeout(() => {
+    room.classList.remove("opening");
+    room.classList.add("room-open");
+    qs("#trade-room-scene").classList.remove("hidden");
+    renderTradeRoomDecision();
+  }, 1050);
+}
+
+function closeTradeRoom() {
+  if (tradeRoomDoorTimer) window.clearTimeout(tradeRoomDoorTimer);
+  tradeRoomDoorTimer = null;
+  tradeRoomAdviceToken += 1;
+  qs("#trade-room").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function enterTradeCenter() {
+  closeTradeRoom();
+  activateTab("trades");
+}
+
+function currentTradeRoomOffer() {
+  cleanupTradeOffers();
+  if (!state.offers.length) return null;
+  tradeRoomOfferIndex = Math.min(tradeRoomOfferIndex, state.offers.length - 1);
+  return state.offers[tradeRoomOfferIndex];
+}
+
+function tradeRoomOfferDetails(offer) {
+  if (!offer) return null;
+  const mine = state.teams[state.selected];
+  const other = state.teams[offer.buyer];
+  if (!mine || !other) return null;
+  const outgoing = mine.roster.find((player) => player.id === offer.outgoing);
+  const incoming = other.roster.find((player) => player.id === offer.incoming);
+  return outgoing && incoming ? { mine, other, outgoing, incoming } : null;
+}
+
+function tradeRoomPlayerLine(player) {
+  const production = player.position === "Goalie"
+    ? `${player.saves} saves | ${player.wins} wins`
+    : `${player.goals} goals | ${player.assists} assists`;
+  return `${player.position} | Age ${player.age} | ${player.rating} OVR | ${production} | ${money(player.salary)}`;
+}
+
+function renderTradeRoomDecision() {
+  const offer = currentTradeRoomOffer();
+  const details = tradeRoomOfferDetails(offer);
+  const acceptButton = qs("#trade-room-accept");
+  const declineButton = qs("#trade-room-decline");
+  const nextButton = qs("#trade-room-next");
+  const owner = state.teams[state.selected] && state.teams[state.selected].owner;
+  qs("#trade-owner-name").textContent = owner || "Team Owner";
+  if (!details) {
+    qs("#trade-room-counter").textContent = "Trade Desk Clear";
+    qs("#trade-room-status").textContent = "There are no incoming requests right now. You can still build and send your own offers.";
+    qs("#trade-room-offer").innerHTML = `<div class="trade-room-empty">No active incoming trade request.</div>`;
+    qs("#trade-owner-advice").textContent = "Bring me an aggressive idea. We can still call another team and make the first move.";
+    qs("#trade-director-advice").textContent = "Use the Trade Center to compare positions, ages, contracts, and current form before sending anything.";
+    acceptButton.classList.add("hidden");
+    declineButton.classList.add("hidden");
+    nextButton.classList.add("hidden");
+    return;
+  }
+  const { other, outgoing, incoming } = details;
+  const tradeCost = Math.max(20, Math.round(Math.abs(incoming.salary - outgoing.salary) * 0.6));
+  acceptButton.classList.remove("hidden");
+  acceptButton.disabled = tradeCost > state.tradeBudget;
+  acceptButton.textContent = tradeCost > state.tradeBudget ? "Over Budget" : "Accept Trade";
+  declineButton.classList.remove("hidden");
+  nextButton.classList.toggle("hidden", state.offers.length < 2);
+  qs("#trade-room-counter").textContent = `Offer ${tradeRoomOfferIndex + 1} of ${state.offers.length} | ${other.name}`;
+  qs("#trade-room-status").textContent = `${other.name} wants a decision. Front-office cost: ${money(tradeCost)} of ${money(state.tradeBudget)} available.`;
+  qs("#trade-room-offer").innerHTML = `
+    <div class="trade-room-player">
+      <span>YOU SEND</span>
+      <strong>${outgoing.name}</strong>
+      <span>${tradeRoomPlayerLine(outgoing)}</span>
+    </div>
+    <div class="trade-room-swap">&#8644;</div>
+    <div class="trade-room-player">
+      <span>YOU RECEIVE${offer.pick ? " + PICK" : ""}</span>
+      <strong>${incoming.name}</strong>
+      <span>${tradeRoomPlayerLine(incoming)}</span>
+    </div>
+  `;
+  const fallback = localTradeRoomAdvice(offer, details);
+  qs("#trade-owner-advice").textContent = fallback.owner;
+  qs("#trade-director-advice").textContent = fallback.director;
+  requestTradeRoomAdvice(offer, details);
+}
+
+function localTradeRoomAdvice(offer, details) {
+  const { outgoing, incoming } = details;
+  const ratingGain = incoming.rating - outgoing.rating;
+  const ageGain = outgoing.age - incoming.age;
+  const pickText = offer.pick ? " The added pick gives us another asset." : "";
+  const ownerEdge = ratingGain >= 0
+    ? `${incoming.name} raises our talent level by ${ratingGain} overall.`
+    : `${incoming.name} could outperform the ratings and gives this roster a different look.`;
+  const ageRisk = ageGain >= 0
+    ? `${outgoing.name} is ${ageGain} year${ageGain === 1 ? "" : "s"} older, but proven production and chemistry still matter.`
+    : `${incoming.name} is older by ${Math.abs(ageGain)} year${Math.abs(ageGain) === 1 ? "" : "s"}, which shortens the value window.`;
+  return {
+    owner: `ACCEPT. ${ownerEdge}${pickText} I want the upside and I am willing to make the move.`,
+    director: `DECLINE. ${ageRisk} We should protect our depth, budget, and lineup balance instead of rushing this.`
+  };
+}
+
+function tradeAdvicePlayer(player) {
+  return {
+    name: player.name,
+    position: player.position,
+    age: player.age,
+    rating: player.rating,
+    salary: player.salary,
+    goals: player.goals,
+    assists: player.assists,
+    saves: player.saves,
+    wins: player.wins,
+    trend: playerTrend(player),
+    traits: player.traits
+  };
+}
+
+async function requestTradeRoomAdvice(offer, details) {
+  const token = ++tradeRoomAdviceToken;
+  try {
+    const response = await fetch("/api/trade-advice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner: details.mine.owner,
+        myTeam: details.mine.name,
+        otherTeam: details.other.name,
+        outgoing: tradeAdvicePlayer(details.outgoing),
+        incoming: tradeAdvicePlayer(details.incoming),
+        includesPick: !!offer.pick,
+        budget: state.tradeBudget,
+        chemistry: details.mine.chemistry,
+        fanbase: details.mine.fanbase,
+        record: `${details.mine.wins}-${details.mine.losses}`
+      })
+    });
+    if (!response.ok) return;
+    const advice = await response.json();
+    if (token !== tradeRoomAdviceToken || qs("#trade-room").classList.contains("hidden")) return;
+    if (advice.owner) qs("#trade-owner-advice").textContent = advice.owner;
+    if (advice.director) qs("#trade-director-advice").textContent = advice.director;
+  } catch (error) {}
+}
+
+function acceptTradeRoomOffer() {
+  if (!currentTradeRoomOffer()) return;
+  acceptOffer(tradeRoomOfferIndex);
+  tradeRoomOfferIndex = 0;
+  renderTradeRoomDecision();
+}
+
+function declineTradeRoomOffer() {
+  if (!currentTradeRoomOffer()) return;
+  declineOffer(tradeRoomOfferIndex);
+  tradeRoomOfferIndex = 0;
+  renderTradeRoomDecision();
+}
+
+function nextTradeRoomOffer() {
+  if (state.offers.length < 2) return;
+  tradeRoomOfferIndex = (tradeRoomOfferIndex + 1) % state.offers.length;
+  renderTradeRoomDecision();
+}
+
+function playTradeDoorSound() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  if (!tradeRoomAudioContext) tradeRoomAudioContext = new AudioContextClass();
+  if (tradeRoomAudioContext.state === "suspended") tradeRoomAudioContext.resume();
+  const now = tradeRoomAudioContext.currentTime;
+  [[92, 0.7, "sawtooth", 0], [138, 0.45, "triangle", 0.18], [620, 0.08, "square", 0.02]].forEach(([frequency, duration, type, delay]) => {
+    const oscillator = tradeRoomAudioContext.createOscillator();
+    const gain = tradeRoomAudioContext.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, now + delay);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(42, frequency * 0.62), now + delay + duration);
+    gain.gain.setValueAtTime(type === "square" ? 0.035 : 0.055, now + delay);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+    oscillator.connect(gain).connect(tradeRoomAudioContext.destination);
+    oscillator.start(now + delay);
+    oscillator.stop(now + delay + duration + 0.02);
+  });
 }
 
 function showDeclinePopup(teamName, message) {
@@ -3432,13 +3647,21 @@ function knockoutLiveBox(live) {
   `;
 }
 
+function activateTab(tab) {
+  qsa(".tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
+  qsa(".tab-view").forEach((view) => view.classList.toggle("active", view.id === `${tab}-view`));
+}
+
 function setTab(tab) {
   if (!tabAllowed(tab)) {
     showLockedTab(tab);
     return;
   }
-  qsa(".tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
-  qsa(".tab-view").forEach((view) => view.classList.toggle("active", view.id === `${tab}-view`));
+  if (tab === "trades") {
+    openTradeRoom();
+    return;
+  }
+  activateTab(tab);
 }
 
 let pendingConfirm = null;
@@ -4083,6 +4306,12 @@ qs("#new-game").addEventListener("click", () => confirmAction(
 qs("#confirm-cancel").addEventListener("click", closeConfirm);
 qs("#confirm-continue").addEventListener("click", continueConfirm);
 qs("#scout-close").addEventListener("click", closeScoutCard);
+qs("#trade-door-open").addEventListener("click", openTradeRoomDoor);
+qs("#trade-room-close").addEventListener("click", closeTradeRoom);
+qs("#trade-room-center").addEventListener("click", enterTradeCenter);
+qs("#trade-room-accept").addEventListener("click", acceptTradeRoomOffer);
+qs("#trade-room-decline").addEventListener("click", declineTradeRoomOffer);
+qs("#trade-room-next").addEventListener("click", nextTradeRoomOffer);
 qs("#toast-close").addEventListener("click", hideTradeToast);
 qs("#toast-view").addEventListener("click", () => {
   hideTradeToast();

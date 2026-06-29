@@ -423,6 +423,50 @@
           </div>
         </div>
       </div>
+      <div class="trade-room hidden" id="trade-room" role="dialog" aria-modal="true" aria-labelledby="trade-room-title">
+        <div class="trade-room-backdrop" aria-hidden="true"></div>
+        <div class="trade-door-stage" id="trade-door-stage">
+          <div class="trade-door-copy">
+            <span>Front Office</span>
+            <strong>Trade Room</strong>
+          </div>
+          <button id="trade-door-open" class="trade-door-handle" type="button" aria-label="Open the trade room door">
+            <span></span>
+          </button>
+          <p>Open the door</p>
+        </div>
+        <button id="trade-room-close" class="trade-room-close" type="button" aria-label="Close trade room">&times;</button>
+        <div class="trade-room-scene hidden" id="trade-room-scene">
+          <div class="trade-advisor trade-advisor-director">
+            <div class="trade-speech">
+              <span>Cap Director</span>
+              <strong id="trade-director-name">Marcus Vale</strong>
+              <p id="trade-director-advice">Reviewing the contract and roster fit...</p>
+            </div>
+          </div>
+          <div class="trade-advisor trade-advisor-owner">
+            <div class="trade-speech">
+              <span>Team Owner</span>
+              <strong id="trade-owner-name">Owner</strong>
+              <p id="trade-owner-advice">Reviewing the competitive upside...</p>
+            </div>
+          </div>
+          <div class="trade-room-desk">
+            <div class="trade-room-heading">
+              <span id="trade-room-counter">Incoming Offer</span>
+              <h2 id="trade-room-title">Front Office Decision</h2>
+              <p id="trade-room-status">Your advisors are reviewing the deal.</p>
+            </div>
+            <div id="trade-room-offer" class="trade-room-offer"></div>
+            <div class="trade-room-actions">
+              <button id="trade-room-decline" class="danger" type="button">Decline</button>
+              <button id="trade-room-next" class="secondary hidden" type="button">Next Offer</button>
+              <button id="trade-room-accept" class="primary" type="button">Accept Trade</button>
+              <button id="trade-room-center" class="secondary" type="button">Enter Trade Center</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="modal hidden" id="interview-modal" role="dialog" aria-modal="true" aria-labelledby="interview-title">
         <div class="modal-box interview-modal-box">
           <p class="eyebrow">Player Interview</p>
