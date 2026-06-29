@@ -1335,6 +1335,18 @@ function simulateWeek() {
   const results = games.map((g) => ({ ...simulateGame(g.home, g.away), played: true }));
   const featured = results.find((g) => g.home === state.selected || g.away === state.selected) || results[0];
   state.liveSim = makeLiveSim(featured, results);
+  const homeTeam = state.teams[featured.home];
+  const awayTeam = state.teams[featured.away];
+  if (window.lacrosseLiveBroadcast) {
+    window.lacrosseLiveBroadcast.start({
+      week: state.week,
+      events: state.liveSim.events,
+      home: { id: homeTeam.id, name: homeTeam.name, color: homeTeam.color },
+      away: { id: awayTeam.id, name: awayTeam.name, color: awayTeam.color },
+      selectedSide: featured.home === state.selected ? "home" : "away",
+      selectedColor: state.teams[state.selected].color
+    });
+  }
   renderAll();
   animateLiveGame();
 }
@@ -1361,7 +1373,10 @@ function makeLiveSim(result, results) {
 function animateLiveGame() {
   if (!state.liveSim) return;
   if (state.liveSim.index >= state.liveSim.events.length) {
-    finishLiveWeek();
+    if (state.liveSim.finishing) return;
+    state.liveSim.finishing = true;
+    if (window.lacrosseLiveBroadcast) window.lacrosseLiveBroadcast.finish(finishLiveWeek);
+    else finishLiveWeek();
     return;
   }
   const event = state.liveSim.events[state.liveSim.index];
@@ -1370,8 +1385,9 @@ function animateLiveGame() {
   if (event.team === "home") state.liveSim.hs += 1;
   else state.liveSim.as += 1;
   state.liveSim.index += 1;
+  if (window.lacrosseLiveBroadcast) window.lacrosseLiveBroadcast.goal(event, state.liveSim);
   renderSeason();
-  setTimeout(animateLiveGame, 230);
+  setTimeout(animateLiveGame, 190);
 }
 
 function finishLiveWeek() {

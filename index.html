@@ -492,7 +492,35 @@
           <button id="celebration-close" class="primary">Continue</button>
         </div>
       </div>
+
+      <section class="lax-broadcast hidden" id="lax-broadcast" aria-label="Live lacrosse game simulation">
+        <div class="lax-broadcast-scene" id="lax-broadcast-scene"></div>
+        <header class="lax-broadcast-scorebar">
+          <div class="lax-broadcast-team" id="lax-away-team">
+            <span class="lax-team-swatch"></span>
+            <strong class="lax-team-name">Away</strong>
+            <b id="lax-away-score">0</b>
+          </div>
+          <div class="lax-broadcast-clock">
+            <span id="lax-quarter">Q1</span>
+            <strong id="lax-clock">12:00</strong>
+            <small>FAST SIM</small>
+          </div>
+          <div class="lax-broadcast-team home" id="lax-home-team">
+            <b id="lax-home-score">0</b>
+            <strong class="lax-team-name">Home</strong>
+            <span class="lax-team-swatch"></span>
+          </div>
+        </header>
+        <div class="lax-possession" id="lax-possession">Opening faceoff</div>
+        <div class="lax-field-key"><span></span>Your team</div>
+        <div class="lax-broadcast-footer">
+          <div><span id="lax-week-label">WEEK 1</span><strong id="lax-event-label">Opening faceoff</strong></div>
+          <div class="lax-periods"><span id="lax-p1">0-0</span><span id="lax-p2">0-0</span><span id="lax-p3">0-0</span><span id="lax-p4">0-0</span></div>
+        </div>
+      </section>
     </main>
     <script src="game.js"></script>
+    <script type="module" src="lacrosse-broadcast.js"></script>
   </body>
 </html>
