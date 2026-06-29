@@ -373,10 +373,20 @@
             <span id="facility-team">Team Facility</span>
             <strong id="facility-location">Front Entrance</strong>
           </div>
-          <div class="facility-key"><kbd>WASD</kbd><span>Walk</span><kbd>E</kbd><span>Use</span></div>
+          <div class="facility-key"><kbd>WASD</kbd><span>Walk</span><kbd>E</kbd><span>Use</span><kbd>DRAG</kbd><span>Look</span></div>
         </header>
         <button id="facility-close" class="facility-close" type="button" aria-label="Return to management screen" title="Return to management screen">&times;</button>
         <button id="facility-interact" class="primary facility-interact hidden" type="button">Open Draft Computer</button>
+        <div class="facility-elevator hidden" id="facility-elevator">
+          <span>Elevator</span>
+          <strong id="facility-elevator-status">Choose a floor</strong>
+          <div>
+            <button data-facility-floor="3" type="button">3</button>
+            <button data-facility-floor="2" type="button">2</button>
+            <button data-facility-floor="1" type="button">1</button>
+          </div>
+          <button id="facility-elevator-close" class="secondary" type="button">Exit Elevator</button>
+        </div>
         <div class="facility-dpad" aria-label="Walk controls">
           <button data-facility-move="forward" type="button" aria-label="Walk forward">&#8593;</button>
           <button data-facility-move="left" type="button" aria-label="Walk left">&#8592;</button>
@@ -391,12 +401,15 @@
               <button id="facility-computer-close" type="button" aria-label="Close computer">&times;</button>
             </div>
             <div class="facility-apps">
-              <button data-facility-section="draft" type="button"><b>D</b><span>Draft Room</span></button>
-              <button data-facility-section="advice" type="button"><b>G</b><span>Gmail</span></button>
-              <button data-facility-section="news" type="button"><b>N</b><span>News Desk</span></button>
-              <button data-facility-section="league" type="button"><b>S</b><span>Standings</span></button>
-              <button data-facility-section="leaders" type="button"><b>L</b><span>League Leaders</span></button>
               <button data-facility-section="season" type="button"><b>20</b><span>Season</span></button>
+              <button data-facility-section="trades" type="button"><b>T</b><span>Trades</span></button>
+              <button data-facility-section="news" type="button"><b>N</b><span>News</span></button>
+              <button data-facility-section="lineup" type="button"><b>L</b><span>Lineup</span></button>
+              <button data-facility-section="advice" type="button"><b>G</b><span>Gmail</span></button>
+              <button data-facility-section="cuts" type="button"><b>C</b><span>Roster Cuts</span></button>
+              <button data-facility-section="draft" type="button"><b>D</b><span>Draft</span></button>
+              <button data-facility-section="league" type="button"><b>S</b><span>Standings</span></button>
+              <button data-facility-section="leaders" type="button"><b>P</b><span>League Leaders</span></button>
             </div>
           </div>
         </div>

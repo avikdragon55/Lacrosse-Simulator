@@ -1033,23 +1033,26 @@ function facilityConfig(firstVisit = false) {
   const leaders = Object.values(readLeaderboard()).sort((a, b) =>
     (b.championships || 0) - (a.championships || 0) || (b.rate || 0) - (a.rate || 0) || (b.yearsPlayed || 0) - (a.yearsPlayed || 0)
   );
+  const topPlayer = [...team.roster].sort((a, b) => b.rating - a.rating)[0];
   return {
     firstVisit,
     teamName: team.name,
     accent: team.color,
     owner: team.owner,
     gmName: state.gmName,
-    leaders
+    leaders,
+    legends: [...(state.hallOfFame || [])].sort((a, b) => b.score - a.score).slice(0, 25),
+    topPlayer: topPlayer ? topPlayer.name : "Team Captain"
   };
 }
 
-function openTeamFacility(forceTour = false) {
+function openTeamFacility(forceEntrance = false) {
   if (state.selected === null) return;
   const facility = qs("#facility");
   document.body.classList.remove("facility-screen-mode");
   facility.classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  const config = facilityConfig(forceTour || !state.facilityEntranceSeen);
+  const config = facilityConfig(forceEntrance || !state.facilityEntranceSeen);
   const openFacility = () => window.teamFacility3D && window.teamFacility3D.open(config);
   if (window.teamFacility3D) openFacility();
   else window.addEventListener("facility-3d-ready", openFacility, { once: true });
