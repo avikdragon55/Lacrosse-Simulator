@@ -444,7 +444,7 @@ function finish(done) {
     active = false;
     overlay.classList.add("hidden");
     done();
-  }, 500);
+  }, 950);
 }
 
 function animate() {
