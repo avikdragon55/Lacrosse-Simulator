@@ -2802,55 +2802,6 @@ body.facility-screen-mode .facility-floating {
   font-size: 28px;
 }
 
-.facility-tour {
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  z-index: 4;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  width: min(680px, calc(100vw - 32px));
-  padding: 14px 16px;
-  background: rgba(4, 10, 15, 0.9);
-  border-top: 3px solid var(--facility-accent, var(--neon-green));
-  transform: translateX(-50%);
-  backdrop-filter: blur(10px);
-}
-
-.facility-tour.hidden {
-  display: none;
-}
-
-.facility-tour span,
-.facility-tour strong,
-.facility-tour p {
-  grid-column: 1;
-}
-
-.facility-tour span {
-  color: var(--facility-accent, var(--neon-green));
-  font-size: 11px;
-  font-weight: 950;
-}
-
-.facility-tour strong {
-  margin-top: 3px;
-  font-size: 21px;
-}
-
-.facility-tour p {
-  margin: 4px 0 0;
-  color: #d3dde4;
-  font-size: 13px;
-}
-
-.facility-tour button {
-  grid-row: 1 / 4;
-  grid-column: 2;
-  align-self: center;
-  margin-left: 16px;
-}
-
 .facility-interact {
   position: absolute;
   bottom: 26px;
@@ -3812,19 +3763,6 @@ body.dark-mode button.primary {
     min-height: 40px;
     z-index: 10;
     display: grid !important;
-  }
-
-  .facility-tour {
-    bottom: 120px;
-    grid-template-columns: 1fr;
-    padding: 12px;
-  }
-
-  .facility-tour button {
-    grid-row: auto;
-    grid-column: 1;
-    justify-self: start;
-    margin: 10px 0 0;
   }
 
   .facility-dpad {

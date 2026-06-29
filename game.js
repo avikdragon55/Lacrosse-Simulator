@@ -502,7 +502,7 @@ function resetGame() {
     latestToastOffer: null,
     tradeMessage: "",
     tradeRoomVisited: false,
-    facilityTourDone: false,
+    facilityEntranceSeen: false,
     ownerGoal: null,
     ownerGoalReviewPending: false,
     fired: false
@@ -692,7 +692,7 @@ function normalizeState() {
   state.ownerGoalReviewPending = !!state.ownerGoalReviewPending;
   state.fired = !!state.fired;
   state.tradeRoomVisited = !!state.tradeRoomVisited;
-  state.facilityTourDone = !!state.facilityTourDone;
+  state.facilityEntranceSeen = !!state.facilityEntranceSeen;
   if (state.selected !== null && !state.ownerGoal) state.ownerGoal = makeOwnerGoal(state.teams[state.selected]);
   state.rosterCutMode = !!state.rosterCutMode;
   state.keepRosterIds = state.keepRosterIds || [];
@@ -1049,7 +1049,7 @@ function openTeamFacility(forceTour = false) {
   document.body.classList.remove("facility-screen-mode");
   facility.classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  const config = facilityConfig(forceTour || !state.facilityTourDone);
+  const config = facilityConfig(forceTour || !state.facilityEntranceSeen);
   const openFacility = () => window.teamFacility3D && window.teamFacility3D.open(config);
   if (window.teamFacility3D) openFacility();
   else window.addEventListener("facility-3d-ready", openFacility, { once: true });
@@ -1075,6 +1075,8 @@ function openFacilitySection(section) {
   if (section === "newspaper") {
     openNewsOffice();
     window.setTimeout(openNewsOfficePaper, 700);
+  } else if (section === "press") {
+    openInterviewModal();
   } else {
     setTab(section);
   }
@@ -4509,8 +4511,8 @@ window.addEventListener("draft-stage-complete", finishDraftPresentation);
 qs("#open-facility").addEventListener("click", () => openTeamFacility(false));
 qs("#facility-floating").addEventListener("click", () => openTeamFacility(false));
 qs("#facility-close").addEventListener("click", leaveTeamFacility);
-window.addEventListener("facility-tour-complete", () => {
-  state.facilityTourDone = true;
+window.addEventListener("facility-entrance-complete", () => {
+  state.facilityEntranceSeen = true;
   saveAccountProgress();
 });
 window.addEventListener("facility-open-section", (event) => openFacilitySection(event.detail.section));

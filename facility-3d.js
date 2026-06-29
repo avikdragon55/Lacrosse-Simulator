@@ -5,10 +5,6 @@ const host = document.querySelector("#facility-3d");
 const locationLabel = document.querySelector("#facility-location");
 const teamLabel = document.querySelector("#facility-team");
 const interactButton = document.querySelector("#facility-interact");
-const tourPanel = document.querySelector("#facility-tour");
-const tourStep = document.querySelector("#facility-tour-step");
-const tourTitle = document.querySelector("#facility-tour-title");
-const tourCopy = document.querySelector("#facility-tour-copy");
 const computerOverlay = document.querySelector("#facility-computer");
 const moveButtons = [...document.querySelectorAll("[data-facility-move]")];
 
@@ -19,16 +15,19 @@ let clock;
 let doorPivot;
 let doorHandle;
 let hand;
-let guide;
 let buildingSign;
 let leaderboardScreen;
 let playoffScreen;
+let elevatorLeft;
+let elevatorRight;
+let elevatorProgress = 0;
+let elevatorTarget = 0;
+let stadiumDoorPivot;
+let stadiumDoorOpen = false;
+let stadiumDoorProgress = 0;
 let active = false;
 let introActive = false;
 let introTime = 0;
-let tourActive = false;
-let tourIndex = 0;
-let tourTime = 0;
 let yaw = 0;
 let dragging = false;
 let dragX = 0;
@@ -38,17 +37,7 @@ let accentColor = new THREE.Color("#20ff9f");
 const keys = { forward: false, backward: false, left: false, right: false };
 const interactions = [];
 const animatedPeople = [];
-
-const tourStops = [
-  { position: [-4.8, 1.66, 10.2], guide: [-4.8, 0, 7.4], title: "Boardroom", copy: "Your owner, cap director, scouts, and assistant GM meet here. The computer at your seat opens the draft room." },
-  { position: [0, 1.66, 3.1], guide: [0, 0, 0.4], title: "League Wall", copy: "The hallway screens hold standings, league leaders, and the global records of real GM accounts." },
-  { position: [5.9, 1.66, 0], guide: [6.2, 0, -3], title: "Trade Office", copy: "Walk into the trade office for offers, opposite advice, and every roster negotiation." },
-  { position: [7.2, 1.66, -8], guide: [7.2, 0, -11], title: "Field Control", copy: "The glass tunnel overlooks your home field. This desk runs the season and live game simulations." },
-  { position: [-6.4, 1.66, -8.2], guide: [-6.4, 0, -11.2], title: "Playoff Suite", copy: "The bracket room activates after the regular season and leads directly into every playoff broadcast." },
-  { position: [0, 1.66, -13.5], guide: [0, 0, -16.2], title: "Trophy Gallery", copy: "Championships, awards, and the top 25 retired players live in the Hall of Fame gallery." },
-  { position: [5.8, 1.66, 9.7], guide: [5.8, 0, 7.1], title: "Your GM Office", copy: "This is your office: a field view, working computer, team equipment, and a newspaper you can pick up." },
-  { position: [-4.8, 1.66, 9.9], guide: [-4.8, 0, 7.2], title: "Tour Complete", copy: "Use WASD or the arrow controls to explore. Walk near an object and press E or the on-screen button." }
-];
+const obstacles = [];
 
 function material(color, roughness = 0.65, metalness = 0.03) {
   return new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -154,17 +143,17 @@ function buildInterior() {
   box([23.5, 5.2, 0.24], 0x303b43, [0, 2.6, -19.7]);
   buildCeilingLights();
   buildField();
+  buildReception();
   buildBoardroom();
   buildGmOffice();
   buildLeagueWall();
+  buildElevator();
+  buildStadiumExit();
   buildRosterRoom();
   buildTradeRoomDoor();
   buildFieldControl();
   buildPlayoffSuite();
   buildTrophyGallery();
-  guide = createHuman(0x1e4867, 0xc88f69, "Jordan Wells | Assistant GM");
-  guide.position.set(0, 0, 11.8);
-  scene.add(guide);
 }
 
 function buildCeilingLights() {
@@ -183,19 +172,70 @@ function buildField() {
   for (let z = -23; z <= 17; z += 4) box([20, 0.015, 0.05], 0xffffff, [23, 0.03, z], { cast: false });
   box([0.05, 0.02, 45], 0xffffff, [23, 0.04, -3], { cast: false });
   [-18, 12].forEach((z) => buildGoal(23, z));
-  for (let i = 0; i < 28; i += 1) {
-    const stand = box([0.55, 0.65 + (i % 4) * 0.12, 0.55], [0x2a64a1, 0xd04a5a, 0xe1a73c][i % 3], [35 + Math.floor(i / 14) * 1.1, 0.35, -19 + (i % 14) * 2.6]);
-    stand.rotation.y = -Math.PI / 2;
+  const concrete = material(0x737c82, 0.88);
+  for (let row = 0; row < 6; row += 1) {
+    box([1.1, 0.38 + row * 0.25, 49], 0, [34 + row * 0.75, 0.18 + row * 0.22, -3], { material: concrete, cast: false });
+    box([0.72, 0.14, 47], row % 2 ? 0x315f84 : 0xbcc6ca, [33.7 + row * 0.75, 0.5 + row * 0.47, -3], { cast: false });
   }
+  [-28, 22].forEach((z, endIndex) => {
+    for (let row = 0; row < 4; row += 1) {
+      box([22, 0.35 + row * 0.22, 0.9], 0, [23, 0.2 + row * 0.22, z + (endIndex ? row : -row) * 0.7], { material: concrete, cast: false });
+      box([20.5, 0.13, 0.68], row % 2 ? 0x315f84 : 0xbcc6ca, [23, 0.5 + row * 0.43, z + (endIndex ? row : -row) * 0.7], { cast: false });
+    }
+  });
+  box([24, 0.14, 2.8], 0x949da1, [13.3, 0.02, 9], { cast: false });
 }
 
 function buildGoal(x, z) {
   const red = material(0xd8494f, 0.35, 0.5);
-  const post = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.055, 9, 32, Math.PI), red);
-  post.position.set(x, 1.25, z);
-  post.rotation.set(0, 0, Math.PI);
-  scene.add(post);
-  [-1.25, 1.25].forEach((side) => box([0.08, 2.5, 0.08], 0xd8494f, [x + side, 1.25, z], { material: red }));
+  [-1.45, 1.45].forEach((side) => box([0.09, 2.25, 0.09], 0, [x + side, 1.13, z], { material: red }));
+  box([3, 0.09, 0.09], 0, [x, 2.25, z], { material: red });
+  const net = new THREE.LineBasicMaterial({ color: 0xe9eef0, transparent: true, opacity: 0.68 });
+  const depth = z < 0 ? -1.7 : 1.7;
+  for (let i = 0; i <= 6; i += 1) {
+    const side = -1.45 + i * 0.48;
+    const points = [new THREE.Vector3(x + side, 0.08, z), new THREE.Vector3(x + side * 0.72, 0.08, z + depth), new THREE.Vector3(x + side, 2.25, z)];
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), net));
+  }
+  for (let i = 0; i <= 5; i += 1) {
+    const y = i * 0.44;
+    const points = [new THREE.Vector3(x - 1.45, y, z), new THREE.Vector3(x, y * 0.45, z + depth), new THREE.Vector3(x + 1.45, y, z)];
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), net));
+  }
+}
+
+function buildReception() {
+  addZoneFloor(0, 8.7, 8.4, 6.3, 0x314553);
+  const stone = material(0x28343d, 0.42, 0.08);
+  box([6.8, 1.2, 1.35], 0, [0, 0.62, 8.3], { material: stone });
+  box([7.2, 0.16, 1.65], 0, [0, 1.24, 8.3], { material: material(0x78858c, 0.3, 0.25) });
+  box([5.6, 0.46, 0.08], 0xffffff, [0, 0.78, 9], { material: makeSignMaterial("WELCOME", currentConfig.accent || "#20ff9f"), cast: false });
+  [-2.25, 0, 2.25].forEach((x, index) => {
+    makeMonitor(x, 1.75, 7.92, index === 0 ? "NEWS" : index === 1 ? "RECEPTION" : "PRESS", index === 1 ? currentConfig.accent || "#20ff9f" : "#55bfff");
+    const person = createHuman([0x31506b, 0x50364a, 0x3c563e][index], [0xd9a27b, 0x9f684e, 0xe2b08a][index], ["Avery Stone | News Desk", "Maya Chen | Reception", "Devon Price | Media Director"][index]);
+    person.position.set(x, 0, 6.95);
+    scene.add(person);
+    animatedPeople.push(person);
+  });
+  const sofa = material(0x294f65, 0.72);
+  [-7.6, 7.6].forEach((x) => {
+    box([2.5, 0.55, 1], 0, [x, 0.45, 10.4], { material: sofa });
+    box([2.5, 0.8, 0.28], 0, [x, 0.85, 10.85], { material: sofa });
+    addObstacle(x, 10.4, 2.7, 1.3);
+  });
+  [-4.5, 4.5].forEach((x) => {
+    const planter = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.7, 18), material(0x303b41, 0.6));
+    planter.position.set(x, 0.35, 9.8);
+    scene.add(planter);
+    const plant = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), material(0x2e764b, 0.86));
+    plant.scale.y = 1.35;
+    plant.position.set(x, 1.18, 9.8);
+    scene.add(plant);
+    addObstacle(x, 9.8, 1.1, 1.1);
+  });
+  interactions.push({ label: "Open News Desk", position: new THREE.Vector3(-2.2, 0, 10.1), action: "news" });
+  interactions.push({ label: "Enter Press Conference", position: new THREE.Vector3(2.2, 0, 10.1), action: "press" });
+  addObstacle(0, 8.3, 7.4, 1.9);
 }
 
 function buildBoardroom() {
@@ -240,13 +280,48 @@ function buildGmOffice() {
 }
 
 function buildLeagueWall() {
-  addZoneFloor(0, 0, 5.3, 5, 0x253541);
-  const wall = box([8.5, 3.5, 0.3], 0x17242d, [0, 2.35, -2.2]);
-  leaderboardScreen = box([7.8, 2.75, 0.06], 0xffffff, [0, 2.45, -2.02], { material: makeLeaderboardMaterial(), cast: false });
-  interactions.push({ label: "View Global Leaderboard", position: new THREE.Vector3(0, 0, 0.2), action: "leaderboard" });
-  interactions.push({ label: "Open Standings", position: new THREE.Vector3(-3.4, 0, -1.1), action: "league" });
-  interactions.push({ label: "Open League Leaders", position: new THREE.Vector3(3.4, 0, -1.1), action: "leaders" });
+  const wall = box([7.6, 3.65, 0.42], 0x17242d, [0, 2.35, 4.7]);
+  leaderboardScreen = box([6.9, 2.9, 0.06], 0xffffff, [0, 2.45, 4.92], { material: makeLeaderboardMaterial(), cast: false });
+  interactions.push({ label: "View All-Time Leaderboard", position: new THREE.Vector3(0, 0, 6.45), action: "leaderboard" });
+  interactions.push({ label: "Open Standings", position: new THREE.Vector3(-3.1, 0, 6.15), action: "league" });
+  interactions.push({ label: "Open League Leaders", position: new THREE.Vector3(3.1, 0, 6.15), action: "leaders" });
   wall.receiveShadow = true;
+  addObstacle(0, 4.7, 8, 0.9);
+}
+
+function buildElevator() {
+  const steel = material(0x9ba7ad, 0.24, 0.78);
+  const darkSteel = material(0x343d42, 0.3, 0.65);
+  box([0.3, 4.8, 4.5], 0, [11.25, 2.4, 1.3], { material: darkSteel });
+  elevatorLeft = box([0.18, 4, 1.65], 0, [11.04, 2.05, 0.4], { material: steel });
+  elevatorRight = box([0.18, 4, 1.65], 0, [11.04, 2.05, 2.2], { material: steel });
+  box([0.16, 0.7, 0.42], 0x151b1f, [10.92, 1.45, 3.65], { metalness: 0.65 });
+  const call = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: currentConfig.accent || "#20ff9f", emissiveIntensity: 1.8 }));
+  call.position.set(10.78, 1.55, 3.65);
+  scene.add(call);
+  const floorDisplay = box([0.12, 0.44, 0.8], 0xffffff, [10.91, 4.35, 1.3], { material: makeSignMaterial("1", currentConfig.accent || "#20ff9f"), cast: false });
+  floorDisplay.rotation.y = Math.PI / 2;
+  interactions.push({ label: "Call Elevator", position: new THREE.Vector3(9.35, 0, 1.3), action: "elevator" });
+  addObstacle(11.1, 1.3, 1, 4.8);
+}
+
+function buildStadiumExit() {
+  const frame = material(0x1a2227, 0.28, 0.72);
+  box([0.34, 4.8, 4.1], 0, [11.27, 2.4, 9], { material: frame });
+  stadiumDoorPivot = new THREE.Group();
+  stadiumDoorPivot.position.set(11.05, 0, 7.35);
+  scene.add(stadiumDoorPivot);
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x84bfd4, transparent: true, opacity: 0.38, roughness: 0.08, transmission: 0.28 });
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.16, 4.15, 3.15), glass);
+  door.position.set(0, 2.1, 1.55);
+  door.castShadow = true;
+  stadiumDoorPivot.add(door);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.75, 14), material(0xd1b877, 0.2, 0.85));
+  handle.position.set(-0.15, 1.5, 2.5);
+  stadiumDoorPivot.add(handle);
+  const exitSign = box([0.12, 0.58, 2.8], 0xffffff, [10.97, 4.65, 9], { material: makeSignMaterial("STADIUM", currentConfig.accent || "#20ff9f"), cast: false });
+  exitSign.rotation.y = Math.PI / 2;
+  interactions.push({ label: "Open Stadium Door", position: new THREE.Vector3(9.5, 0, 9), action: "stadium" });
 }
 
 function buildRosterRoom() {
@@ -471,7 +546,7 @@ function makeTextSprite(text) {
   texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true }));
   sprite.position.y = 2.9;
-  sprite.scale.set(innerWidth < 600 ? 1.5 : 2.25, innerWidth < 600 ? 0.25 : 0.36, 1);
+  sprite.scale.set(innerWidth < 600 ? 1.25 : 1.8, innerWidth < 600 ? 0.21 : 0.3, 1);
   return sprite;
 }
 
@@ -498,11 +573,11 @@ function bindControls() {
   addEventListener("keydown", (event) => {
     if (!active) return;
     const action = keyAction(event.key);
-    if (action && !tourActive && !introActive && computerOverlay.classList.contains("hidden")) {
+    if (action && !introActive && computerOverlay.classList.contains("hidden")) {
       keys[action] = true;
       event.preventDefault();
     }
-    if ((event.key === "e" || event.key === "E" || event.key === "Enter") && nearestInteraction && !tourActive && !introActive) useInteraction();
+    if ((event.key === "e" || event.key === "E" || event.key === "Enter") && nearestInteraction && !introActive) useInteraction();
     if (event.key === "Escape" && !computerOverlay.classList.contains("hidden")) computerOverlay.classList.add("hidden");
   });
   addEventListener("keyup", (event) => {
@@ -511,7 +586,7 @@ function bindControls() {
   });
   moveButtons.forEach((button) => {
     const action = button.dataset.facilityMove;
-    const start = (event) => { event.preventDefault(); if (!tourActive && !introActive) keys[action] = true; };
+    const start = (event) => { event.preventDefault(); if (!introActive) keys[action] = true; };
     const stop = (event) => { event.preventDefault(); keys[action] = false; };
     button.addEventListener("pointerdown", start);
     button.addEventListener("pointerup", stop);
@@ -520,13 +595,12 @@ function bindControls() {
   });
   host.addEventListener("pointerdown", (event) => { dragging = true; dragX = event.clientX; });
   addEventListener("pointermove", (event) => {
-    if (!dragging || !active || tourActive || introActive) return;
+    if (!dragging || !active || introActive) return;
     yaw -= (event.clientX - dragX) * 0.004;
     dragX = event.clientX;
   });
   addEventListener("pointerup", () => { dragging = false; });
   interactButton.addEventListener("click", useInteraction);
-  document.querySelector("#facility-tour-skip").addEventListener("click", finishTour);
   document.querySelector("#facility-computer-close").addEventListener("click", () => computerOverlay.classList.add("hidden"));
   document.querySelectorAll("[data-facility-section]").forEach((button) => button.addEventListener("click", () => dispatchSection(button.dataset.facilitySection)));
 }
@@ -548,13 +622,10 @@ function open(config = {}) {
   if (config.firstVisit) startEntrance();
   else {
     introActive = false;
-    tourActive = false;
-    camera.position.set(-4.8, 1.66, 10.5);
+    camera.position.set(0, 1.66, 11.8);
     yaw = 0;
-    guide.visible = false;
-    tourPanel.classList.add("hidden");
     doorPivot.rotation.y = Math.PI * 0.52;
-    locationLabel.textContent = "Boardroom";
+    locationLabel.textContent = "Reception Lobby";
   }
   clock.start();
 }
@@ -582,49 +653,12 @@ function close() {
 function startEntrance() {
   introActive = true;
   introTime = 0;
-  tourActive = false;
   camera.position.set(0, 1.68, 25.5);
   yaw = 0;
   doorPivot.rotation.y = 0;
   doorHandle.rotation.z = 0;
   hand.visible = true;
-  guide.visible = true;
-  guide.position.set(0, 0, 11.2);
-  tourPanel.classList.remove("hidden");
-  tourStep.textContent = "WELCOME TO THE CLUB";
-  tourTitle.textContent = currentConfig.teamName || "Your new facility";
-  tourCopy.textContent = "Your assistant GM is waiting inside to show you the building.";
   interactButton.classList.add("hidden");
-}
-
-function startTour() {
-  introActive = false;
-  tourActive = true;
-  tourIndex = 0;
-  tourTime = 0;
-  hand.visible = false;
-  showTourStop();
-}
-
-function showTourStop() {
-  const stop = tourStops[tourIndex];
-  tourStep.textContent = `FACILITY TOUR ${tourIndex + 1} / ${tourStops.length}`;
-  tourTitle.textContent = stop.title;
-  tourCopy.textContent = stop.copy;
-  tourPanel.classList.remove("hidden");
-}
-
-function finishTour() {
-  introActive = false;
-  tourActive = false;
-  tourIndex = tourStops.length - 1;
-  camera.position.set(-4.8, 1.66, 10.5);
-  yaw = 0;
-  guide.position.set(-4.8, 0, 7.2);
-  guide.visible = true;
-  hand.visible = true;
-  tourPanel.classList.add("hidden");
-  window.dispatchEvent(new Event("facility-tour-complete"));
 }
 
 function dispatchSection(section) {
@@ -637,6 +671,18 @@ function useInteraction() {
   if (nearestInteraction.action === "computer") {
     document.querySelector("#facility-computer-title").textContent = `${currentConfig.teamName || "Team"} GM Computer`;
     computerOverlay.classList.remove("hidden");
+    return;
+  }
+  if (nearestInteraction.action === "elevator") {
+    elevatorTarget = elevatorTarget > 0.5 ? 0 : 1;
+    nearestInteraction.label = elevatorTarget ? "Close Elevator" : "Call Elevator";
+    interactButton.textContent = nearestInteraction.label;
+    return;
+  }
+  if (nearestInteraction.action === "stadium") {
+    stadiumDoorOpen = !stadiumDoorOpen;
+    nearestInteraction.label = stadiumDoorOpen ? "Close Stadium Door" : "Open Stadium Door";
+    interactButton.textContent = nearestInteraction.label;
     return;
   }
   dispatchSection(nearestInteraction.action);
@@ -656,8 +702,10 @@ function update(dt) {
     person.position.y = Math.sin(time * 1.1 + index) * 0.008;
     person.rotation.z = Math.sin(time * 0.7 + index) * 0.006;
   });
+  updateElevator(dt);
+  stadiumDoorProgress = THREE.MathUtils.lerp(stadiumDoorProgress, stadiumDoorOpen ? 1 : 0, Math.min(1, dt * 3.2));
+  if (stadiumDoorPivot) stadiumDoorPivot.rotation.y = -stadiumDoorProgress * Math.PI * 0.52;
   if (introActive) updateEntrance(dt);
-  else if (tourActive) updateTour(dt);
   else if (computerOverlay.classList.contains("hidden")) updateWalking(dt);
   updateCameraLook();
 }
@@ -673,25 +721,21 @@ function updateEntrance(dt) {
   doorPivot.rotation.y = smoothstep(3.05, 4.45, introTime) * Math.PI * 0.52;
   if (introTime > 4.1) camera.position.z = THREE.MathUtils.lerp(15.8, 11.4, smoothstep(4.1, 6.1, introTime));
   locationLabel.textContent = introTime < 2.3 ? "Front Entrance" : introTime < 4.5 ? "Opening Main Door" : "Executive Lobby";
-  if (introTime >= 6.2) startTour();
+  if (introTime >= 6.2) {
+    introActive = false;
+    camera.position.set(0, 1.66, 11.8);
+    yaw = 0;
+    hand.position.set(0.42, -0.48, -0.82);
+    hand.rotation.z = 0;
+    locationLabel.textContent = "Reception Lobby";
+    window.dispatchEvent(new Event("facility-entrance-complete"));
+  }
 }
 
-function updateTour(dt) {
-  const stop = tourStops[tourIndex];
-  tourTime += dt;
-  const move = smoothstep(0, 1.5, tourTime);
-  camera.position.lerp(new THREE.Vector3(...stop.position), Math.min(1, dt * (2.2 + move * 2)));
-  guide.position.lerp(new THREE.Vector3(...stop.guide), Math.min(1, dt * 2.5));
-  const dx = guide.position.x - camera.position.x;
-  const dz = guide.position.z - camera.position.z;
-  yaw = Math.atan2(dx, -dz);
-  locationLabel.textContent = stop.title;
-  if (tourTime >= 4.35) {
-    tourTime = 0;
-    tourIndex += 1;
-    if (tourIndex >= tourStops.length) finishTour();
-    else showTourStop();
-  }
+function updateElevator(dt) {
+  elevatorProgress = THREE.MathUtils.lerp(elevatorProgress, elevatorTarget, Math.min(1, dt * 2.5));
+  if (elevatorLeft) elevatorLeft.position.z = THREE.MathUtils.lerp(0.4, -0.42, elevatorProgress);
+  if (elevatorRight) elevatorRight.position.z = THREE.MathUtils.lerp(2.2, 3.02, elevatorProgress);
 }
 
 function updateWalking(dt) {
@@ -708,10 +752,10 @@ function updateWalking(dt) {
     const forwardZ = -Math.cos(yaw);
     const rightX = Math.cos(yaw);
     const rightZ = Math.sin(yaw);
-    camera.position.x += (forwardX * forward + rightX * side) * speed;
-    camera.position.z += (forwardZ * forward + rightZ * side) * speed;
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -10.7, 10.7);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -18.4, 12.8);
+    const nextX = camera.position.x + (forwardX * forward + rightX * side) * speed;
+    const nextZ = camera.position.z + (forwardZ * forward + rightZ * side) * speed;
+    if (canOccupy(nextX, camera.position.z)) camera.position.x = nextX;
+    if (canOccupy(camera.position.x, nextZ)) camera.position.z = nextZ;
     camera.position.y = 1.66 + Math.sin(performance.now() * 0.012) * 0.025;
     hand.position.y = -0.48 + Math.sin(performance.now() * 0.012) * 0.018;
   }
@@ -734,6 +778,9 @@ function updateNearestInteraction() {
 }
 
 function locationFor(x, z) {
+  if (x > 12) return "Home Stadium";
+  if (z > 6.3 && Math.abs(x) < 4.2) return "Reception Lobby";
+  if (x > 7.4 && z > -1.2 && z < 4.4) return "Elevator Lobby";
   if (z > 4.1 && x < -1.5) return "Boardroom";
   if (z > 4.1 && x > 1.5) return "GM Office";
   if (z > -2.8) return "League Hallway";
@@ -751,7 +798,19 @@ function updateCameraLook() {
     camera.position.y - 0.08,
     camera.position.z - Math.cos(yaw) * 7
   );
-  if (guide && tourActive) guide.rotation.y = Math.atan2(camera.position.x - guide.position.x, camera.position.z - guide.position.z);
+}
+
+function addObstacle(x, z, width, depth, padding = 0.35) {
+  obstacles.push({ minX: x - width / 2 - padding, maxX: x + width / 2 + padding, minZ: z - depth / 2 - padding, maxZ: z + depth / 2 + padding });
+}
+
+function canOccupy(x, z) {
+  const inside = x >= -10.7 && x <= 10.7 && z >= -18.4 && z <= 12.8;
+  const doorCorridor = stadiumDoorOpen && x >= 9.3 && x <= 15 && z >= 7.15 && z <= 10.85;
+  const stadium = x >= 12.5 && x <= 34 && z >= -24 && z <= 18;
+  if (!inside && !doorCorridor && !stadium) return false;
+  if (x > 10.7) return doorCorridor || stadium;
+  return !obstacles.some((obstacle) => x > obstacle.minX && x < obstacle.maxX && z > obstacle.minZ && z < obstacle.maxZ);
 }
 
 function smoothstep(min, max, value) {
