@@ -424,16 +424,19 @@
         </div>
       </div>
       <div class="trade-room hidden" id="trade-room" role="dialog" aria-modal="true" aria-labelledby="trade-room-title">
-        <div class="trade-room-backdrop" aria-hidden="true"></div>
-        <div class="trade-door-stage" id="trade-door-stage">
-          <div class="trade-door-copy">
+        <div class="trade-room-3d-host" id="trade-room-3d" aria-hidden="true"></div>
+        <div class="trade-room-walk-ui" id="trade-room-walk-ui">
+          <div class="trade-room-location">
             <span>Front Office</span>
-            <strong>Trade Room</strong>
+            <strong id="trade-room-location">Hallway</strong>
           </div>
-          <button id="trade-door-open" class="trade-door-handle" type="button" aria-label="Open the trade room door">
-            <span></span>
-          </button>
-          <p>Open the door</p>
+          <div class="trade-room-dpad" aria-label="Walk controls">
+            <button data-trade-move="forward" type="button" aria-label="Walk forward">&#8593;</button>
+            <button data-trade-move="left" type="button" aria-label="Walk left">&#8592;</button>
+            <button data-trade-move="backward" type="button" aria-label="Walk backward">&#8595;</button>
+            <button data-trade-move="right" type="button" aria-label="Walk right">&#8594;</button>
+          </div>
+          <button id="trade-room-sit" class="primary trade-room-sit hidden" type="button">Sit</button>
         </div>
         <button id="trade-room-close" class="trade-room-close" type="button" aria-label="Close trade room">&times;</button>
         <div class="trade-room-scene hidden" id="trade-room-scene">
@@ -567,6 +570,7 @@
       </section>
     </main>
     <script src="game.js"></script>
+    <script type="module" src="trade-room-3d.js"></script>
     <script type="module" src="lacrosse-broadcast.js"></script>
   </body>
 </html>

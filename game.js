@@ -54,8 +54,6 @@ let aiInterviewEnabled = false;
 let aiInterviewChecked = false;
 let tradeRoomOfferIndex = 0;
 let tradeRoomAdviceToken = 0;
-let tradeRoomDoorTimer = null;
-let tradeRoomAudioContext = null;
 let music = {
   ctx: null,
   master: null,
@@ -1727,33 +1725,32 @@ function openTradeRoom() {
   const room = qs("#trade-room");
   const scene = qs("#trade-room-scene");
   if (!room || !scene) return;
-  if (tradeRoomDoorTimer) window.clearTimeout(tradeRoomDoorTimer);
   tradeRoomOfferIndex = 0;
   tradeRoomAdviceToken += 1;
-  room.classList.remove("hidden", "opening", "room-open");
+  room.classList.remove("hidden", "room-open");
   scene.classList.add("hidden");
   document.body.style.overflow = "hidden";
-}
-
-function openTradeRoomDoor() {
-  const room = qs("#trade-room");
-  if (!room || room.classList.contains("opening") || room.classList.contains("room-open")) return;
-  playTradeDoorSound();
-  room.classList.add("opening");
-  tradeRoomDoorTimer = window.setTimeout(() => {
-    room.classList.remove("opening");
-    room.classList.add("room-open");
-    qs("#trade-room-scene").classList.remove("hidden");
-    renderTradeRoomDecision();
-  }, 1050);
+  const config = { accent: state.teams[state.selected] ? state.teams[state.selected].color : "#20ff9f" };
+  if (window.tradeRoom3D) window.tradeRoom3D.open(config);
+  else window.addEventListener("trade-room-3d-ready", () => {
+    if (!room.classList.contains("hidden") && window.tradeRoom3D) window.tradeRoom3D.open(config);
+  }, { once: true });
 }
 
 function closeTradeRoom() {
-  if (tradeRoomDoorTimer) window.clearTimeout(tradeRoomDoorTimer);
-  tradeRoomDoorTimer = null;
   tradeRoomAdviceToken += 1;
   qs("#trade-room").classList.add("hidden");
+  qs("#trade-room").classList.remove("room-open");
+  if (window.tradeRoom3D) window.tradeRoom3D.close();
   document.body.style.overflow = "";
+}
+
+function finishTradeRoomWalk() {
+  const room = qs("#trade-room");
+  if (!room || room.classList.contains("hidden")) return;
+  room.classList.add("room-open");
+  qs("#trade-room-scene").classList.remove("hidden");
+  renderTradeRoomDecision();
 }
 
 function enterTradeCenter() {
@@ -1910,26 +1907,6 @@ function nextTradeRoomOffer() {
   if (state.offers.length < 2) return;
   tradeRoomOfferIndex = (tradeRoomOfferIndex + 1) % state.offers.length;
   renderTradeRoomDecision();
-}
-
-function playTradeDoorSound() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) return;
-  if (!tradeRoomAudioContext) tradeRoomAudioContext = new AudioContextClass();
-  if (tradeRoomAudioContext.state === "suspended") tradeRoomAudioContext.resume();
-  const now = tradeRoomAudioContext.currentTime;
-  [[92, 0.7, "sawtooth", 0], [138, 0.45, "triangle", 0.18], [620, 0.08, "square", 0.02]].forEach(([frequency, duration, type, delay]) => {
-    const oscillator = tradeRoomAudioContext.createOscillator();
-    const gain = tradeRoomAudioContext.createGain();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, now + delay);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(42, frequency * 0.62), now + delay + duration);
-    gain.gain.setValueAtTime(type === "square" ? 0.035 : 0.055, now + delay);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
-    oscillator.connect(gain).connect(tradeRoomAudioContext.destination);
-    oscillator.start(now + delay);
-    oscillator.stop(now + delay + duration + 0.02);
-  });
 }
 
 function showDeclinePopup(teamName, message) {
@@ -4306,12 +4283,12 @@ qs("#new-game").addEventListener("click", () => confirmAction(
 qs("#confirm-cancel").addEventListener("click", closeConfirm);
 qs("#confirm-continue").addEventListener("click", continueConfirm);
 qs("#scout-close").addEventListener("click", closeScoutCard);
-qs("#trade-door-open").addEventListener("click", openTradeRoomDoor);
 qs("#trade-room-close").addEventListener("click", closeTradeRoom);
 qs("#trade-room-center").addEventListener("click", enterTradeCenter);
 qs("#trade-room-accept").addEventListener("click", acceptTradeRoomOffer);
 qs("#trade-room-decline").addEventListener("click", declineTradeRoomOffer);
 qs("#trade-room-next").addEventListener("click", nextTradeRoomOffer);
+window.addEventListener("trade-room-seated", finishTradeRoomWalk);
 qs("#toast-close").addEventListener("click", hideTradeToast);
 qs("#toast-view").addEventListener("click", () => {
   hideTradeToast();
