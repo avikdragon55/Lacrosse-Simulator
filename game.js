@@ -683,7 +683,7 @@ function loadAccount(username) {
   renderOwnerAccess();
   renderAll();
   if (isOwnerAccount()) setTab("owner");
-  if (state.selected !== null) window.setTimeout(() => openTeamFacility(false), 80);
+  document.body.classList.remove("facility-screen-mode");
   return true;
 }
 
@@ -1037,8 +1037,7 @@ function selectTeam(id) {
   qs("#game").scrollIntoView({ behavior: "smooth", block: "start" });
   setTab("draft");
   renderAll();
-  facilityOwnerGoalPending = true;
-  openTeamFacility(true);
+  window.setTimeout(showOwnerGoalPrompt, 350);
 }
 
 function facilityConfig(firstVisit = false) {
@@ -1342,10 +1341,7 @@ function closeDraftPresentation() {
   document.body.style.overflow = "";
   if (state.myDrafted.length < draftNeeds.length) activateTab("draft");
   else if (state.rosterCutMode) activateTab("cuts");
-  else {
-    activateTab("lineup");
-    window.setTimeout(() => openTeamFacility(false), 180);
-  }
+  else activateTab("lineup");
 }
 
 function advanceToMyPick() {
@@ -2451,8 +2447,7 @@ function continueToNextSeason() {
   state.ownerGoalReviewPending = false;
   setTab("draft");
   renderAll();
-  facilityOwnerGoalPending = true;
-  openTeamFacility(false);
+  window.setTimeout(showOwnerGoalPrompt, 350);
 }
 
 function rosterContinuity(team) {
