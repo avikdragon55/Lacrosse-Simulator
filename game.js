@@ -785,21 +785,20 @@ function createAccount() {
   }
   const existingKey = findAccountKey(username);
   const accounts = readAccounts();
+  const accountsBeforeCreate = JSON.parse(JSON.stringify(accounts));
   if (accounts[existingKey]) {
     if (accounts[existingKey].password === password) {
-      setAccountMessage("");
-      showLoginChoice(existingKey, accounts[existingKey]);
-      return;
+      delete accounts[existingKey];
+    } else {
+      const existingState = accounts[existingKey].state;
+      const incomplete = !existingState || !Array.isArray(existingState.teams) || !existingState.teams.length;
+      if (incomplete) delete accounts[existingKey];
+      else {
+        setAccountMessage("That username already exists. Log in or choose another username.");
+        return;
+      }
     }
-    const existingState = accounts[existingKey].state;
-    const incomplete = !existingState || !Array.isArray(existingState.teams) || !existingState.teams.length;
-    if (!incomplete) {
-      setAccountMessage("That username already exists. Log in or choose another username.");
-      return;
-    }
-    delete accounts[existingKey];
   }
-  const accountsBeforeCreate = JSON.parse(JSON.stringify(accounts));
   accounts[username] = { username, password, gmName, owner: accountMatchesOwner(username, { username, gmName }), banned: false, idCounter: 0, state: null, createdAt: Date.now(), updatedAt: Date.now() };
   try {
     writeAccounts(accounts);
