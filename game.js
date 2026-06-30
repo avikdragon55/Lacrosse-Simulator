@@ -688,6 +688,15 @@ function loadAccount(username) {
 }
 
 function normalizeState() {
+  const validPlayer = (player) => player && typeof player === "object" && positions.includes(player.position);
+  const fallbackTeams = [];
+  state.teams = Array.from({ length: teamNames.length }, (_, index) => {
+    const savedTeam = Array.isArray(state.teams) ? state.teams[index] : null;
+    if (savedTeam && typeof savedTeam === "object") return savedTeam;
+    if (!fallbackTeams.length) fallbackTeams.push(...createTeams());
+    return fallbackTeams[index];
+  });
+  if (!Number.isInteger(state.selected) || !state.teams[state.selected]) state.selected = null;
   state.news = state.news || [];
   state.allStarDone = !!state.allStarDone;
   state.allStarResults = state.allStarResults || [];
@@ -701,7 +710,13 @@ function normalizeState() {
   state.rosterCutMode = !!state.rosterCutMode;
   state.keepRosterIds = state.keepRosterIds || [];
   state.emails = state.emails || [];
-  state.teams.forEach((team) => {
+  state.teams.forEach((team, index) => {
+    team.id = index;
+    team.roster = Array.isArray(team.roster) ? team.roster.filter(validPlayer) : [];
+    if (!team.roster.length) {
+      if (!fallbackTeams.length) fallbackTeams.push(...createTeams());
+      team.roster = fallbackTeams[index].roster;
+    }
     team.lineup = team.lineup || {};
     team.roster.forEach((player) => {
       player.traits = player.traits || makeTraits(player.position, player.rating);
@@ -711,6 +726,8 @@ function normalizeState() {
     });
     ensureTeamLineup(team);
   });
+  state.draftPool = Array.isArray(state.draftPool) ? state.draftPool.filter(validPlayer) : [];
+  if (!state.draftPool.length) state.draftPool = createDraftPool(state.draftYear || 1);
   state.draftPool.forEach((player) => {
     player.traits = player.traits || makeTraits(player.position, player.rating);
     player.interviewProfile = player.interviewProfile || makeInterviewProfile(player.name, player.position, player.rating);
@@ -734,9 +751,10 @@ function normalizeState() {
 function inferIdCounter(savedState) {
   const ids = [];
   (savedState.teams || []).forEach((team) => {
-    (team.roster || []).forEach((player) => ids.push(player.id));
+    if (!team) return;
+    (team.roster || []).forEach((player) => { if (player && player.id) ids.push(player.id); });
   });
-  (savedState.draftPool || []).forEach((player) => ids.push(player.id));
+  (savedState.draftPool || []).forEach((player) => { if (player && player.id) ids.push(player.id); });
   return ids.reduce((max, id) => {
     const match = String(id).match(/^p-(\d+)$/);
     return match ? Math.max(max, Number(match[1]) + 1) : max;
@@ -768,9 +786,15 @@ function createAccount() {
   const existingKey = findAccountKey(username);
   const accounts = readAccounts();
   if (accounts[existingKey]) {
-    setAccountMessage("That username already exists. Log in or choose another username.");
-    return;
+    const existingState = accounts[existingKey].state;
+    const incomplete = !existingState || !Array.isArray(existingState.teams) || !existingState.teams.length;
+    if (!incomplete) {
+      setAccountMessage("That username already exists. Log in or choose another username.");
+      return;
+    }
+    delete accounts[existingKey];
   }
+  const accountsBeforeCreate = JSON.parse(JSON.stringify(accounts));
   accounts[username] = { username, password, gmName, owner: accountMatchesOwner(username, { username, gmName }), banned: false, idCounter: 0, state: null, createdAt: Date.now(), updatedAt: Date.now() };
   try {
     writeAccounts(accounts);
@@ -782,6 +806,11 @@ function createAccount() {
     setAccountMessage("");
   } catch (error) {
     currentAccount = null;
+    try {
+      writeAccounts(accountsBeforeCreate);
+    } catch (rollbackError) {
+      // The original error shown below is more useful than a second storage error.
+    }
     setAccountMessage(error.message || "Could not create the account. Please try again.");
   }
 }
