@@ -786,6 +786,11 @@ function createAccount() {
   const existingKey = findAccountKey(username);
   const accounts = readAccounts();
   if (accounts[existingKey]) {
+    if (accounts[existingKey].password === password) {
+      setAccountMessage("");
+      showLoginChoice(existingKey, accounts[existingKey]);
+      return;
+    }
     const existingState = accounts[existingKey].state;
     const incomplete = !existingState || !Array.isArray(existingState.teams) || !existingState.teams.length;
     if (!incomplete) {
@@ -851,10 +856,16 @@ function showLoginChoice(username, account) {
 function continueSavedAccount() {
   if (!pendingLoginAccount) return;
   const username = pendingLoginAccount;
-  pendingLoginAccount = null;
-  if (!loadAccount(username)) {
+  try {
+    if (loadAccount(username)) {
+      pendingLoginAccount = null;
+      return;
+    }
     pendingLoginAccount = username;
     setAccountMessage("No saved season found. Press Start Over to create your team again.");
+  } catch (error) {
+    pendingLoginAccount = username;
+    setAccountMessage(`This save could not be loaded safely. Press Start Over to repair the account. (${error.message || "save error"})`);
   }
 }
 
