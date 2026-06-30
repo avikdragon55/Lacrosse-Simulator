@@ -136,6 +136,13 @@ function buildExterior() {
         windowPanel.material.emissive = new THREE.Color(0x0a1d28);
         windowPanel.material.emissiveIntensity = 0.55;
       });
+    } else {
+      [-8.2, -5.2, 5.2, 8.2].forEach((x) => {
+        const windowPanel = addBox([2.25, 3.35, 0.07], 0x315f74, [x, base + 2.75, 15.21], { roughness: 0.12, metalness: 0.16, cast: false });
+        windowPanel.material.emissive = new THREE.Color(0x09202c);
+        windowPanel.material.emissiveIntensity = 0.65;
+        addBox([0.08, 3.42, 0.1], 0xa9bbc3, [x, base + 2.75, 15.27], { metalness: 0.8 });
+      });
     }
     addBox([24.8, 0.38, 0.7], 0x182127, [0, base + 5.75, 14.9], { metalness: 0.25 });
   }
@@ -311,7 +318,8 @@ function buildFloorTwo() {
 }
 
 function buildGmOffice(base) {
-  addBox([10.5, 0.04, 9.5], 0x45504a, [-2.2, base + 0.13, -9.3], { cast: false });
+  addBox([10.5, 0.04, 9.5], 0x6a472d, [-2.2, base + 0.13, -9.3], { cast: false });
+  for (let x = -7; x <= 2; x += 1.1) addBox([0.035, 0.018, 9.2], 0x2f2118, [x, base + 0.155, -9.3], { cast: false });
   addBox([10.5, 4.8, 0.24], 0x4b5960, [-2.2, base + 2.4, -14]);
   addBox([0.24, 4.8, 9.5], 0x4b5960, [3.05, base + 2.4, -9.3]);
   const deskWood = mat(0x603a22, 0.42, 0.05);
@@ -321,13 +329,22 @@ function buildGmOffice(base) {
   buildLaptop(-1.7, base + 1.2, -9.15);
   buildNewspaper(-4.4, base + 1.18, -9.2);
   buildLacrosseRack(-6.6, base, -12.8);
+  buildOfficeChair(-1.7, base, -11.2, 0);
+  buildOfficeChair(-3.7, base, -6.75, Math.PI);
+  buildOfficeChair(0.1, base, -6.75, Math.PI);
+  addBox([3.1, 0.48, 1.25], 0x24333c, [-4.8, base + 0.4, -12.7]);
+  addBox([2.55, 0.05, 0.7], 0xffffff, [-4.8, base + 0.67, -12.7], { material: makeScreenMaterial("SEASON PLAN", currentConfig.accent || "#20ff9f"), cast: false });
+  addFramedTeamArt(-0.4, base + 2.7, -13.85, "GM OF THE YEAR");
+  addPlant(1.8, base, -12.8);
+  addRug(-2.2, base, -8.65, 7.6, 4.8, currentConfig.accent || "#20ff9f");
   addInteraction(2, -1.7, -7.5, "Open GM Laptop", "computer");
   addInteraction(2, -4.4, -7.5, "Read Newspaper", "newspaper");
   addObstacle(2, -2.6, -9.3, 7.8, 2.9);
 }
 
 function buildTradeOffice(base) {
-  addBox([10.5, 0.04, 9.5], 0x3e4349, [-2.2, base + 0.13, 9.3], { cast: false });
+  addBox([10.5, 0.04, 9.5], 0x624129, [-2.2, base + 0.13, 9.3], { cast: false });
+  for (let x = -7; x <= 2; x += 1.1) addBox([0.035, 0.018, 9.2], 0x2e2017, [x, base + 0.155, 9.3], { cast: false });
   addBox([10.5, 4.8, 0.24], 0x434e55, [-2.2, base + 2.4, 14]);
   addBox([0.24, 4.8, 9.5], 0x434e55, [3.05, base + 2.4, 9.3]);
   const table = mat(0x50301e, 0.46);
@@ -339,22 +356,30 @@ function buildTradeOffice(base) {
     person.rotation.y = Math.PI;
     scene.add(person);
     animatedPeople.push(person);
+    buildOfficeChair(x, base, 11.35, 0);
   });
-  addInteraction(2, -5.3, 4.7, "Enter Trade Office", "trades");
+  buildOfficeChair(-2.2, base, 6.65, Math.PI);
+  addBox([3.5, 1.45, 0.08], 0xffffff, [-2.2, base + 3.05, 13.85], { material: makeTradeBoardMaterial(), cast: false });
+  addFramedTeamArt(-6.65, base + 2.55, 9.1, "DEAL ROOM", true);
+  addPlant(1.8, base, 12.7);
+  addRug(-2.2, base, 9.1, 7.6, 4.8, "#315f7d");
+  addInteraction(2, -2.2, 6.25, "Review Trades at the Desk", "trades-direct");
   addObstacle(2, -2.2, 9, 7.5, 2.6);
 }
 
 function buildTrophyRoom(base) {
-  addBox([8.6, 0.04, 10.5], 0x3d3729, [7.5, base + 0.13, 0], { cast: false });
+  addBox([8.6, 0.04, 10.5], 0x1e252a, [7.5, base + 0.13, 0], { cast: false });
   addBox([0.24, 4.8, 10.5], 0x515b61, [11.6, base + 2.4, 0]);
-  for (let i = 0; i < 7; i += 1) {
-    const z = -4.2 + i * 1.4;
-    addBox([1.15, 0.9, 1.05], 0x263139, [8.8, base + 0.45, z]);
-    const trophy = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.34, 0.66, 18), mat(i % 2 ? 0xc7ccd0 : 0xd9aa39, 0.18, 0.88));
-    trophy.position.set(8.8, base + 1.3, z);
-    trophy.castShadow = true;
-    scene.add(trophy);
-  }
+  addRug(7.3, base, 0, 6.9, 8.8, "#8b6b24");
+  [-3.7, -1.85, 0, 1.85, 3.7].forEach((z, index) => buildTrophyCase(9.25, base, z, index));
+  [6.1, 8.35].forEach((x, col) => [-3.45, -1.15, 1.15, 3.45].forEach((z, row) => {
+    const banner = addBox([1.45, 2.15, 0.05], 0xffffff, [x, base + 3.8, z], { material: makeBannerMaterial(col * 4 + row + 1), cast: false });
+    banner.rotation.y = Math.PI / 2;
+  }));
+  addBox([3.1, 0.9, 1.45], 0x202a30, [6.2, base + 0.48, 0]);
+  buildChampionshipCup(6.2, base + 0.95, 0, 1.35, 0xf4c75b);
+  const title = addBox([0.08, 0.75, 5.7], 0xffffff, [11.43, base + 4.45, 0], { material: makeScreenMaterial("CHAMPIONSHIP GALLERY", currentConfig.accent || "#20ff9f"), cast: false });
+  title.rotation.y = -Math.PI / 2;
   const standings = addBox([4.6, 2.8, 0.08], 0xffffff, [7.2, base + 2.55, 5.02], { material: makeScreenMaterial("FULL STANDINGS", "#4a9de0"), cast: false });
   standings.rotation.y = Math.PI;
   const leaders = addBox([4.6, 2.8, 0.08], 0xffffff, [7.2, base + 2.55, -5.02], { material: makeScreenMaterial("LEAGUE LEADERS", "#e5ae3f"), cast: false });
@@ -387,14 +412,21 @@ function buildHallOfFame(base) {
     plaque.receiveShadow = false;
     hallPlaques.push(plaque);
   }
+  addRug(2, base, -9.3, 15.8, 7.2, "#8a6725");
+  [-6.8, 10.7].forEach((x) => {
+    buildChampionshipCup(x, base + 0.65, -11.5, 1.3, 0xf1ca64);
+    addBox([1.5, 0.65, 1.5], 0x20282d, [x, base + 0.36, -11.5]);
+  });
+  [-4, 0, 4, 8].forEach((x, index) => addFramedTeamArt(x, base + 3.2, -6.25, `LEGENDS ${index + 1}`));
+  addBox([12, 0.16, 0.7], 0xc6a34e, [2, base + 0.32, -5.25], { metalness: 0.65 });
   addInteraction(3, 2, -6.7, "Open Hall of Fame", "hof");
 }
 
 function buildDraftRoom(base) {
-  addBox([18, 0.04, 10], 0x232b31, [2, base + 0.13, 9.3], { cast: false });
-  addBox([18, 4.8, 0.24], 0x10273a, [2, base + 2.4, 14.2]);
-  addBox([10.5, 0.4, 4.8], 0x493023, [4.5, base + 0.35, 10.8]);
-  addBox([9.4, 3.4, 0.08], 0xffffff, [4.5, base + 2.55, 14], { material: makeScreenMaterial("PROFESSIONAL LACROSSE DRAFT", currentConfig.accent || "#20ff9f"), cast: false });
+  addBox([18, 0.04, 10], 0x161c22, [2, base + 0.13, 9.3], { cast: false });
+  addBox([18, 5.4, 0.24], 0x081825, [2, base + 2.7, 14.2]);
+  addBox([11.2, 0.4, 4.8], 0x493023, [4.2, base + 0.35, 10.8]);
+  addBox([10.8, 3.8, 0.08], 0xffffff, [4.2, base + 2.7, 14], { material: makeScreenMaterial("PROFESSIONAL LACROSSE DRAFT", currentConfig.accent || "#20ff9f"), cast: false });
   addBox([1.8, 1.45, 0.78], 0x4c2d1b, [7.2, base + 1.1, 10.2]);
   const commissioner = createPerson(0x202d3c, 0xd5a17c, "League Commissioner");
   commissioner.position.set(7.2, base + 0.5, 9.7);
@@ -405,10 +437,12 @@ function buildDraftRoom(base) {
   prospect.userData.baseY = base + 0.5;
   scene.add(prospect);
   animatedPeople.push(commissioner, prospect);
-  for (let row = 0; row < 3; row += 1) {
-    addBox([1.1, 0.28 + row * 0.2, 8.5], 0x252e35, [-5.6 - row * 0.72, base + 0.2 + row * 0.22, 9.3], { cast: false });
+  for (let row = 0; row < 6; row += 1) {
+    addBox([1.2, 0.26 + row * 0.18, 9.4], 0x252e35, [-3.8 - row * 1.05, base + 0.18 + row * 0.23, 9.3], { cast: false });
+    for (let seat = 0; seat < 6; seat += 1) addBox([0.55, 0.5, 0.65], seat % 2 ? 0x274d68 : 0x81363c, [-3.55 - row * 1.05, base + 0.55 + row * 0.23, 5.7 + seat * 1.45]);
   }
-  addInteraction(3, 0.5, 6.2, "Enter Draft Room", "draft");
+  [-0.8, 2.1, 5, 7.9].forEach((x) => buildCameraRig(x, base, 7));
+  addInteraction(3, -1.1, 5.2, "Open Draft Board", "draft-direct");
 }
 
 function addRoomLabel(base, x, z, text) {
@@ -546,10 +580,150 @@ function buildEmptyBroadcastStands() {
   const concrete = mat(0x1a2024, 0.86);
   for (const side of [-1, 1]) {
     for (let row = 0; row < 5; row += 1) {
-      addBox([1.45, 0.42, FIELD.length + 5], 0, [FIELD.centerX + side * (8.25 + row * 0.92), 0.2 + row * 0.4, 0], { material: concrete, cast: false });
-      addBox([0.95, 0.12, FIELD.length + 3.8], row % 2 ? 0x2f627e : 0xb8c2c7, [FIELD.centerX + side * (7.98 + row * 0.92), 0.48 + row * 0.4, 0], { cast: false });
+      const x = FIELD.centerX + side * (8.25 + row * 0.92);
+      const seatX = FIELD.centerX + side * (7.98 + row * 0.92);
+      if (side < 0) {
+        // Keep a real concourse aisle where the facility tunnel reaches the field.
+        addBox([1.45, 0.42, 21.2], 0, [x, 0.2 + row * 0.4, -5.1], { material: concrete, cast: false });
+        addBox([0.95, 0.12, 20.2], row % 2 ? 0x2f627e : 0xb8c2c7, [seatX, 0.48 + row * 0.4, -5.3], { cast: false });
+        addBox([1.45, 0.42, 4.1], 0, [x, 0.2 + row * 0.4, 13.45], { material: concrete, cast: false });
+        addBox([0.95, 0.12, 3.6], row % 2 ? 0x2f627e : 0xb8c2c7, [seatX, 0.48 + row * 0.4, 13.55], { cast: false });
+      } else {
+        addBox([1.45, 0.42, FIELD.length + 5], 0, [x, 0.2 + row * 0.4, 0], { material: concrete, cast: false });
+        addBox([0.95, 0.12, FIELD.length + 3.8], row % 2 ? 0x2f627e : 0xb8c2c7, [seatX, 0.48 + row * 0.4, 0], { cast: false });
+      }
     }
   }
+  addBox([7.8, 0.08, 4.15], 0x687176, [25.1, 0.04, 8.4], { cast: false });
+  [-1.8, 1.8].forEach((offset) => addBox([7.8, 0.13, 0.12], 0xf0c34d, [25.1, 0.12, 8.4 + offset], { cast: false }));
+}
+
+function buildOfficeChair(x, base, z, rotation = 0) {
+  const group = new THREE.Group();
+  group.position.set(x, base, z);
+  group.rotation.y = rotation;
+  scene.add(group);
+  const leather = mat(0x172128, 0.48, 0.08);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.18, 1.05), leather);
+  seat.position.y = 0.72;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.45, 0.18), leather);
+  back.position.set(0, 1.35, 0.46);
+  back.rotation.x = -0.1;
+  group.add(seat, back);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.62, 12), mat(0x657078, 0.2, 0.85));
+  stem.position.y = 0.35;
+  group.add(stem);
+}
+
+function addRug(x, base, z, width, depth, accent) {
+  const rug = addBox([width, 0.025, depth], 0x15222a, [x, base + 0.17, z], { cast: false });
+  rug.material.emissive = new THREE.Color(accent);
+  rug.material.emissiveIntensity = 0.08;
+  const border = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(width, 0.03, depth)),
+    new THREE.LineBasicMaterial({ color: accent })
+  );
+  border.position.set(x, base + 0.185, z);
+  scene.add(border);
+}
+
+function addPlant(x, base, z) {
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.25, 0.55, 18), mat(0x8a5334, 0.76));
+  pot.position.set(x, base + 0.3, z);
+  scene.add(pot);
+  for (let i = 0; i < 7; i += 1) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), mat(i % 2 ? 0x2f7b4a : 0x3d965d, 0.82));
+    leaf.scale.set(0.55, 1.25, 0.45);
+    leaf.position.set(x + Math.sin(i) * 0.28, base + 0.88 + (i % 3) * 0.2, z + Math.cos(i) * 0.25);
+    leaf.rotation.z = (i - 3) * 0.17;
+    scene.add(leaf);
+  }
+}
+
+function addFramedTeamArt(x, y, z, text, sideWall = false) {
+  const art = addBox(sideWall ? [0.08, 1.55, 2.8] : [2.8, 1.55, 0.08], 0xffffff, [x, y, z], { material: makeScreenMaterial(text, currentConfig.accent || "#20ff9f"), cast: false });
+  if (sideWall) art.rotation.y = Math.PI / 2;
+}
+
+function buildChampionshipCup(x, y, z, scale = 1, color = 0xe1b84d) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  group.scale.setScalar(scale);
+  scene.add(group);
+  const metal = mat(color, 0.16, 0.92);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.42, 0.16, 24), mat(0x171d21, 0.25, 0.7));
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.44, 18), metal);
+  stem.position.y = 0.28;
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), metal);
+  bowl.position.y = 0.67;
+  bowl.rotation.x = Math.PI;
+  group.add(base, stem, bowl);
+  [-1, 1].forEach((side) => {
+    const curve = new THREE.TorusGeometry(0.32, 0.045, 10, 22, Math.PI * 1.25);
+    const handle = new THREE.Mesh(curve, metal);
+    handle.position.set(side * 0.38, 0.69, 0);
+    handle.rotation.z = side > 0 ? -0.45 : Math.PI + 0.45;
+    group.add(handle);
+  });
+}
+
+function buildTrophyCase(x, base, z, index) {
+  addBox([1.55, 0.72, 1.45], 0x1a2228, [x, base + 0.38, z]);
+  buildChampionshipCup(x, base + 0.82, z, index === 2 ? 1.05 : 0.76, index % 2 ? 0xc9d1d5 : 0xe7bd4d);
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xc8efff, transparent: true, opacity: 0.16, roughness: 0.04, transmission: 0.75 });
+  const caseBox = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.65, 1.4), glass);
+  caseBox.position.set(x, base + 1.55, z);
+  scene.add(caseBox);
+  addBox([1.35, 0.22, 0.05], 0xffffff, [x - 0.02, base + 0.4, z + 0.74], { material: makeScreenMaterial(`TITLE ${index + 1}`, "#e7bd4d"), cast: false });
+}
+
+function makeTradeBoardMaterial() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1100;
+  canvas.height = 460;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#07131c";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = currentConfig.accent || "#20ff9f";
+  ctx.fillRect(0, 0, canvas.width, 14);
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 55px system-ui";
+  ctx.fillText("LIVE TRADE BOARD", 48, 78);
+  ctx.font = "800 30px system-ui";
+  ["INCOMING OFFERS", "CAP SPACE", "ROSTER NEEDS"].forEach((label, i) => {
+    ctx.fillStyle = i === 0 ? "#65d99a" : "#d9e3e8";
+    ctx.fillText(label, 60, 165 + i * 92);
+    ctx.fillStyle = "#31404a";
+    ctx.fillRect(420, 132 + i * 92, 610 - i * 85, 42);
+  });
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: texture });
+}
+
+function makeBannerMaterial(number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 420;
+  canvas.height = 620;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = number % 2 ? "#132b3b" : "#4b2630";
+  ctx.fillRect(0, 0, 420, 620);
+  ctx.strokeStyle = "#e9c35f";
+  ctx.lineWidth = 16;
+  ctx.strokeRect(12, 12, 396, 596);
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = "900 46px system-ui";
+  ctx.fillText("CHAMPIONS", 210, 120);
+  ctx.font = "900 120px system-ui";
+  ctx.fillStyle = "#e9c35f";
+  ctx.fillText(String(number), 210, 340);
+  ctx.font = "800 32px system-ui";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("PRO LACROSSE", 210, 500);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: texture });
 }
 
 function makeDeskMonitor(x, y, z, text, accent) {
@@ -988,6 +1162,10 @@ function useInteraction() {
     interactButton.textContent = nearestInteraction.label;
     return;
   }
+  if (action === "trades-direct" || action === "draft-direct") {
+    dispatchSection(action === "trades-direct" ? "trades-direct" : "draft-direct");
+    return;
+  }
   dispatchSection(action);
 }
 
@@ -1139,8 +1317,8 @@ function updateNearestInteraction() {
 
 function canOccupy(x, z) {
   if (currentFloor === 1 && x > 11.2) {
-    const tunnel = tunnelDoorOpen && x <= 23.5 && z >= 6.25 && z <= 10.55;
-    const stadium = x >= 21.5 && x <= 40 && z >= -15.8 && z <= 15.8;
+    const tunnel = tunnelDoorOpen && x <= 27.2 && z >= 6.15 && z <= 10.65;
+    const stadium = x >= 23 && x <= 39.6 && z >= -13.7 && z <= 13.7;
     if (!tunnel && !stadium) return false;
   } else if (x < -10.7 || x > 10.7 || z < -13.8 || z > 13.8) return false;
   return !obstacles.some((obstacle) => obstacle.floor === currentFloor && x > obstacle.minX && x < obstacle.maxX && z > obstacle.minZ && z < obstacle.maxZ);

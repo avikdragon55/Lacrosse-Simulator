@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PLS - Professional Lacrosse Simulator</title>
-    <link rel="stylesheet" href="styles.css?v=account-fix-1" />
+    <link rel="stylesheet" href="styles.css?v=facility-detail-2" />
   </head>
   <body>
     <main class="shell">
@@ -424,24 +424,26 @@
             <button id="show-signup" class="primary" type="button">Create Account</button>
             <button id="show-login" class="secondary" type="button">Log In</button>
           </div>
-          <div class="account-fields">
-            <label id="gm-name-field">
-              <span>General Manager Name</span>
-              <input id="gm-name" type="text" autocomplete="name" placeholder="Coach Powers" />
-            </label>
-            <label>
-              <span>Username</span>
-              <input id="account-username" type="text" autocomplete="username" placeholder="username" />
-            </label>
-            <label>
-              <span>Password</span>
-              <input id="account-password" type="password" autocomplete="current-password" placeholder="password" />
-            </label>
-          </div>
-          <div id="account-message" class="account-message"></div>
-          <div class="modal-actions">
-            <button id="account-submit" class="primary" type="button">Create Account</button>
-          </div>
+          <form id="account-form" novalidate>
+            <div class="account-fields">
+              <label id="gm-name-field">
+                <span>General Manager Name</span>
+                <input id="gm-name" type="text" autocomplete="name" placeholder="Coach Powers" />
+              </label>
+              <label>
+                <span>Username</span>
+                <input id="account-username" type="text" autocomplete="username" placeholder="username" />
+              </label>
+              <label>
+                <span>Password</span>
+                <input id="account-password" type="password" autocomplete="current-password" placeholder="password" />
+              </label>
+            </div>
+            <div id="account-message" class="account-message"></div>
+            <div class="modal-actions">
+              <button id="account-submit" class="primary" type="submit">Create Account</button>
+            </div>
+          </form>
           <div id="account-choice" class="account-choice hidden">
             <strong id="account-choice-title">Welcome back</strong>
             <span>Choose how you want to load this GM account.</span>
@@ -657,11 +659,11 @@
         </div>
       </section>
     </main>
-    <script src="game.js?v=account-fix-1"></script>
-    <script type="module" src="trade-room-3d.js?v=account-fix-1"></script>
-    <script type="module" src="news-interview-3d.js?v=account-fix-1"></script>
-    <script type="module" src="draft-stage-3d.js?v=account-fix-1"></script>
-    <script type="module" src="facility-3d.js?v=account-fix-1"></script>
-    <script type="module" src="lacrosse-broadcast.js?v=account-fix-1"></script>
+    <script src="game.js?v=facility-detail-2"></script>
+    <script type="module" src="trade-room-3d.js?v=facility-detail-2"></script>
+    <script type="module" src="news-interview-3d.js?v=facility-detail-2"></script>
+    <script type="module" src="draft-stage-3d.js?v=facility-detail-2"></script>
+    <script type="module" src="facility-3d.js?v=facility-detail-2"></script>
+    <script type="module" src="lacrosse-broadcast.js?v=facility-detail-2"></script>
   </body>
 </html>

@@ -1293,8 +1293,14 @@ button:disabled {
 }
 
 .account-modal {
-  z-index: 60;
+  z-index: 20000;
+  pointer-events: auto;
   background: rgba(0, 0, 0, 0.82);
+}
+
+.account-modal button,
+.account-modal input {
+  pointer-events: auto;
 }
 
 .account-box {

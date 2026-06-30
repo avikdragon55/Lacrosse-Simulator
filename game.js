@@ -531,7 +531,11 @@ function readAccounts() {
 }
 
 function writeAccounts(accounts) {
-  localStorage.setItem(accountStorageKey, JSON.stringify(accounts));
+  try {
+    localStorage.setItem(accountStorageKey, JSON.stringify(accounts));
+  } catch (error) {
+    throw new Error("Chrome blocked this game's local account storage. Allow site data for lacrosse-simulator.onrender.com and try again.");
+  }
 }
 
 function normalizeAccountStorage() {
@@ -768,13 +772,18 @@ function createAccount() {
     return;
   }
   accounts[username] = { username, password, gmName, owner: accountMatchesOwner(username, { username, gmName }), banned: false, idCounter: 0, state: null, createdAt: Date.now(), updatedAt: Date.now() };
-  writeAccounts(accounts);
-  currentAccount = username;
-  resetGame();
-  state.gmName = gmName;
-  saveAccountProgress();
-  qs("#account-modal").classList.add("hidden");
-  setAccountMessage("");
+  try {
+    writeAccounts(accounts);
+    currentAccount = username;
+    resetGame();
+    state.gmName = gmName;
+    saveAccountProgress();
+    qs("#account-modal").classList.add("hidden");
+    setAccountMessage("");
+  } catch (error) {
+    currentAccount = null;
+    setAccountMessage(error.message || "Could not create the account. Please try again.");
+  }
 }
 
 function loginAccount() {
@@ -847,8 +856,12 @@ function setAccountMode(mode) {
 }
 
 function submitAccountForm() {
-  if (accountMode === "signup") createAccount();
-  else loginAccount();
+  try {
+    if (accountMode === "signup") createAccount();
+    else loginAccount();
+  } catch (error) {
+    setAccountMessage(error.message || "The account form could not be submitted.");
+  }
 }
 
 function setAccountMessage(message) {
@@ -1075,7 +1088,13 @@ function leaveTeamFacility() {
 function openFacilitySection(section) {
   closeTeamFacility();
   document.body.classList.add("facility-screen-mode");
-  if (section === "newspaper") {
+  if (section === "trades-direct") {
+    if (tabAllowed("trades")) activateTab("trades");
+    else showLockedTab("trades");
+  } else if (section === "draft-direct") {
+    if (tabAllowed("draft")) activateTab("draft");
+    else showLockedTab("draft");
+  } else if (section === "newspaper") {
     openNewsOffice();
     window.setTimeout(openNewsOfficePaper, 700);
   } else if (section === "press") {
@@ -4614,12 +4633,12 @@ qs("#interview-question").addEventListener("keydown", (event) => {
 });
 qs("#show-signup").addEventListener("click", () => setAccountMode("signup"));
 qs("#show-login").addEventListener("click", () => setAccountMode("login"));
-qs("#account-submit").addEventListener("click", submitAccountForm);
+qs("#account-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitAccountForm();
+});
 qs("#continue-save").addEventListener("click", continueSavedAccount);
 qs("#start-over-save").addEventListener("click", startAccountOver);
-qsa("#account-modal input").forEach((input) => input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") submitAccountForm();
-}));
 function handleOwnerConsoleClick(event) {
   const actionButton = event.target.closest("[data-owner-action]");
   const commandButton = event.target.closest("[data-owner-command]");
