@@ -1103,6 +1103,7 @@ function open(config = {}) {
 
 function close() {
   active = false;
+  if (!renderer || !camera) return;
   if (!introActive && !inElevator && !elevatorTravel) {
     savedPosition = camera.position.clone();
     savedYaw = yaw;
